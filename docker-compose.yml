@@ -1,0 +1,55 @@
+networks:
+  gateway-net:
+    driver: bridge
+
+services:
+  # 1. 統一的 Nginx 閘道器（負責子網域分流）
+  gateway:
+    image: nginx:latest
+    container_name: app-gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:80:80" # 把容器內的 80 埠嚴格綁定在主機 127.0.0.1（也就是大家常聽到的 localhost）標準本機位址，本機限定（最高安全）
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - gateway-net
+
+  # 2. 主作品集網站 (對應 shenyang.win)
+  portfolio:
+    build:
+      context: ./portfolio
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+    networks:
+      - gateway-net
+
+  # 3. AI 平台前端 (對應 ai-platform.shenyang.win)
+  ai_platform_frontend:
+    build:
+      context: ./ai-platform/frontend
+    restart: unless-stopped
+    networks:
+      - gateway-net
+
+  # 4. AI 平台後端 (給 AI 平台呼叫的 API)
+  ai_platform_backend:
+    build:
+      context: ./ai-platform/backend
+    restart: unless-stopped
+    env_file: ./ai-platform/backend/.env
+    networks:
+      - gateway-net
+
+  # 5. Cloudflare Tunnel (將外網流量接進來，指向 gateway:80)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    networks:
+      - gateway-net
