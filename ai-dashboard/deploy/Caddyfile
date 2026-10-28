@@ -1,0 +1,13 @@
+# SITE_ADDRESS 未設定時只開 HTTP :80；設成網域（例如 demo.example.com）會自動申請 HTTPS 憑證
+{$SITE_ADDRESS::80} {
+	encode gzip
+
+	# /api/* 轉給 FastAPI 後端，其餘頁面交給 Next.js 前端
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

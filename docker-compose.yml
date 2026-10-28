@@ -2,49 +2,91 @@ networks:
   gateway-net:
     driver: bridge
 
+volumes:
+  ollama-data:
+  nginx-logs:
+
 services:
-  # 1. 統一的 Nginx 閘道器（負責子網域分流）
+  # ---------------------------------------------------------------------------
+  # 基礎設施：統一的 Nginx 閘道器（負責子網域分流，若沒開對應網站會回傳 502，不佔用多餘資源）
+  # ---------------------------------------------------------------------------
   gateway:
     image: nginx:latest
-    container_name: app-gateway
     restart: unless-stopped
     ports:
-      - "127.0.0.1:80:80" # 把容器內的 80 埠嚴格綁定在主機 127.0.0.1（也就是大家常聽到的 localhost）標準本機位址，本機限定（最高安全）
+      - "127.0.0.1:80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-logs:/var/log/nginx
     networks:
       - gateway-net
 
-  # 2. 主作品集網站 (對應 shenyang.win)
+  # ---------------------------------------------------------------------------
+  # 專案一：主作品集網站 (對應 shenyang.win)
+  # ---------------------------------------------------------------------------
   portfolio:
     build:
       context: ./portfolio
     restart: unless-stopped
-    environment:
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      - RESEND_API_KEY=${RESEND_API_KEY}
+    env_file:
+      - ./portfolio/.env
     networks:
       - gateway-net
+    profiles: ["portfolio"]  # 👈 獨立分組標籤
 
-  # 3. AI 平台前端 (對應 ai-platform.shenyang.win)
-  ai_platform_frontend:
+  # ---------------------------------------------------------------------------
+  # 專案二：AI 平台前端 (對應 ai-platform.shenyang.win)
+  # ---------------------------------------------------------------------------
+  ai-platform-frontend:
     build:
       context: ./ai-platform/frontend
     restart: unless-stopped
+    env_file:
+      - ./ai-platform/.env
     networks:
       - gateway-net
+    profiles: ["ai-platform"]  # 👈 獨立分組標籤
 
-  # 4. AI 平台後端 (給 AI 平台呼叫的 API)
-  ai_platform_backend:
+  # 專案二：AI 平台後端 (與前端設定同一組，確保啟動 AI 平台時前後端一起跑)
+  ai-platform-backend:
     build:
       context: ./ai-platform/backend
     restart: unless-stopped
-    env_file: ./ai-platform/backend/.env
+    env_file:
+      - ./ai-platform/.env
     networks:
       - gateway-net
+    profiles: ["ai-platform"]  # 👈 帶有相同的分組標籤
 
-  # 5. Cloudflare Tunnel (將外網流量接進來，指向 gateway:80)
+  # ---------------------------------------------------------------------------
+  # 專案三：AI 儀表板網站前端 (對應 ai-dashboard.shenyang.win)
+  # ---------------------------------------------------------------------------
+  ai-dashboard-frontend:
+    build:
+      context: ./ai-dashboard/frontend
+    restart: unless-stopped
+    env_file:
+      - ./ai-dashboard/.env
+    networks:
+      - gateway-net
+    profiles: ["ai-dashboard"]  # 👈 獨立分組標籤
+    
+  # ---------------------------------------------------------------------------
+  # 專案三：AI 儀表板網站後端
+  # ---------------------------------------------------------------------------
+  ai-dashboard-backend:
+    build:
+      context: ./ai-dashboard/backend
+    restart: unless-stopped
+    env_file:
+      - ./ai-dashboard/.env
+    networks:
+      - gateway-net
+    profiles: ["ai-dashboard"]  # 👈 獨立分組標籤
+
+  # ---------------------------------------------------------------------------
+  # 基礎設施：Cloudflare Tunnel (將外網流量安全接進來，導向 gateway:80)
+  # ---------------------------------------------------------------------------
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped

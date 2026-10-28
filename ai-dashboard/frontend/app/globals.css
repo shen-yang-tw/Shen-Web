@@ -1,0 +1,191 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+}
+
+:root {
+  --background: #080d19;
+  --foreground: #e2e8f0;
+  --card: #0d1525;
+  --muted: #121c2f;
+  --muted-foreground: #8390a7;
+  --border: #1e2b41;
+  --ring: #818cf8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, 'Noto Sans TC', 'PingFang TC', sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+button:not(:disabled):not(.cursor-default) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button.cursor-default {
+  cursor: default;
+}
+
+.app-shell :where(h1, h2, h3, p, label, th, td) {
+  overflow-wrap: anywhere;
+}
+
+::selection {
+  background: rgb(99 102 241 / 0.35);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --background: #f3f6fb;
+  --foreground: #172033;
+  --card: #ffffff;
+  --muted: #e9eef6;
+  --muted-foreground: #596579;
+  --border: #d6deea;
+  --ring: #4f46e5;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* 深色主題：slate-500/600 在深色底上只有約 3.9:1，提升到 slate-400 以達 WCAG AA */
+[data-theme='dark'] [class~='text-slate-500'],
+[data-theme='dark'] [class~='text-slate-600'] {
+  color: #94a3b8 !important;
+}
+
+.app-shell[data-theme='light'] {
+  background-color: #f3f6fb !important;
+  color: #172033 !important;
+}
+
+.app-shell[data-theme='dark'] {
+  background-color: #080d19;
+  color: #e2e8f0;
+}
+
+[data-theme='light'] .app-sidebar,
+[data-theme='light'] [class~='bg-[#0b1220]'] {
+  background-color: #ffffff !important;
+}
+
+[data-theme='light'] [class~='bg-[#080d19]'],
+[data-theme='light'] [class~='bg-[#0d1525]'],
+[data-theme='light'] [class~='bg-[#0a1120]'],
+[data-theme='light'] [class~='bg-slate-900/50'],
+[data-theme='light'] [class~='bg-slate-900/60'],
+[data-theme='light'] [class~='bg-slate-900/70'],
+[data-theme='light'] [class~='bg-slate-900'] {
+  background-color: #ffffff !important;
+}
+
+[data-theme='light'] [class~='bg-slate-800'] {
+  background-color: #e6ebf3 !important;
+}
+
+[data-theme='light'] [class~='border-slate-800'],
+[data-theme='light'] [class~='border-slate-700'],
+[data-theme='light'] [class~='border-slate-900'] {
+  border-color: #d6deea !important;
+}
+
+[data-theme='light'] [class~='border-dashed'] {
+  border-color: #aeb9c9 !important;
+}
+
+[data-theme='light'] [class~='text-white'],
+[data-theme='light'] [class~='text-slate-100'],
+[data-theme='light'] [class~='text-slate-200'] {
+  color: #172033 !important;
+}
+
+[data-theme='light'] [class~='text-slate-300'] {
+  color: #344054 !important;
+}
+
+[data-theme='light'] [class~='text-slate-400'],
+[data-theme='light'] [class~='text-slate-500'],
+[data-theme='light'] [class~='text-slate-600'] {
+  color: #5b667a !important;
+}
+
+[data-theme='light'] [class~='text-indigo-200'],
+[data-theme='light'] [class~='text-indigo-300'] {
+  color: #3730a3 !important;
+}
+
+[data-theme='light'] [class~='text-emerald-300'],
+[data-theme='light'] [class~='text-emerald-400'] {
+  color: #047857 !important;
+}
+
+[data-theme='light'] [class~='text-amber-300'] {
+  color: #854d0e !important;
+}
+
+[data-theme='light'] [class~='text-rose-300'] {
+  color: #9f1239 !important;
+}
+
+[data-theme='light'] button[class~='text-white'] {
+  color: #ffffff !important;
+}
+
+[data-theme='light'] input:not([type='range']),
+[data-theme='light'] select {
+  background-color: #ffffff !important;
+  color: #172033 !important;
+}
+
+[data-theme='light'] input::placeholder {
+  color: #5b667a !important;
+}
+
+[data-theme='light'] .app-sidebar [aria-current='page'] [class~='text-white'] {
+  color: #3730a3 !important;
+}
+
+[data-theme='light'] .app-sidebar [aria-current='page'] {
+  background-color: #eef2ff !important;
+  color: #3730a3 !important;
+}

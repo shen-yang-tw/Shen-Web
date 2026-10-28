@@ -1,0 +1,66 @@
+# Oracle VM 部署用：只有 Caddy 對外（80/443），前後端留在內部網路。
+# 前端使用同源 /api，因此 VM 重新開機換 IP 後不需要重新建置。
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        # 空字串代表使用同源路徑，由 Caddy 轉發 /api
+        NEXT_PUBLIC_API_URL: ""
+    image: predictflow-frontend:oracle
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: predictflow-backend:oracle
+    environment:
+      # 同源部署不需要跨網域，仍保留給直接測試使用
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      ACTIVE_MODEL: ${ACTIVE_MODEL:-claude-sonnet-5-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MODELOPS_DB_PATH: /data/modelops.db
+    volumes:
+      # 保留挽留佇列與 AI 呼叫紀錄，容器重建後仍在
+      - backend_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health', timeout=2)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  backend_data:
+  caddy_data:
+  caddy_config:
