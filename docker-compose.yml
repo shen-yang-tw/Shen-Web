@@ -8,13 +8,14 @@ volumes:
 
 services:
   # ---------------------------------------------------------------------------
-  # 基礎設施：統一的 Nginx 閘道器（負責子網域分流，若沒開對應網站會回傳 502，不佔用多餘資源）
+  # 基礎設施：統一的 Nginx 閘道器
   # ---------------------------------------------------------------------------
   gateway:
     image: nginx:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:80:80"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx-logs:/var/log/nginx
@@ -22,7 +23,7 @@ services:
       - gateway-net
 
   # ---------------------------------------------------------------------------
-  # 專案一：主作品集網站 (對應 shenyang.win)
+  # 專案一：主作品集網站
   # ---------------------------------------------------------------------------
   portfolio:
     build:
@@ -32,10 +33,10 @@ services:
       - ./portfolio/.env
     networks:
       - gateway-net
-    profiles: ["portfolio"]  # 👈 獨立分組標籤
+    profiles: ["portfolio"]
 
   # ---------------------------------------------------------------------------
-  # 專案二：AI 平台前端 (對應 ai-platform.shenyang.win)
+  # 專案二：AI 平台前端
   # ---------------------------------------------------------------------------
   ai-platform-frontend:
     build:
@@ -45,9 +46,9 @@ services:
       - ./ai-platform/.env
     networks:
       - gateway-net
-    profiles: ["ai-platform"]  # 👈 獨立分組標籤
+    profiles: ["ai-platform"]
 
-  # 專案二：AI 平台後端 (與前端設定同一組，確保啟動 AI 平台時前後端一起跑)
+  # 專案二：AI 平台後端
   ai-platform-backend:
     build:
       context: ./ai-platform/backend
@@ -56,10 +57,10 @@ services:
       - ./ai-platform/.env
     networks:
       - gateway-net
-    profiles: ["ai-platform"]  # 👈 帶有相同的分組標籤
+    profiles: ["ai-platform"]
 
   # ---------------------------------------------------------------------------
-  # 專案三：AI 儀表板網站前端 (對應 ai-dashboard.shenyang.win)
+  # 專案三：AI 儀表板前端
   # ---------------------------------------------------------------------------
   ai-dashboard-frontend:
     build:
@@ -69,11 +70,9 @@ services:
       - ./ai-dashboard/.env
     networks:
       - gateway-net
-    profiles: ["ai-dashboard"]  # 👈 獨立分組標籤
+    profiles: ["ai-dashboard"]
     
-  # ---------------------------------------------------------------------------
-  # 專案三：AI 儀表板網站後端
-  # ---------------------------------------------------------------------------
+  # 專案三：AI 儀表板後端
   ai-dashboard-backend:
     build:
       context: ./ai-dashboard/backend
@@ -82,16 +81,18 @@ services:
       - ./ai-dashboard/.env
     networks:
       - gateway-net
-    profiles: ["ai-dashboard"]  # 👈 獨立分組標籤
+    profiles: ["ai-dashboard"]
 
   # ---------------------------------------------------------------------------
-  # 基礎設施：Cloudflare Tunnel (將外網流量安全接進來，導向 gateway:80)
+  # 基礎設施：Cloudflare Tunnel
   # ---------------------------------------------------------------------------
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    env_file:
+      - ./.env
+    # environment:
+    #   TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     command: tunnel --no-autoupdate run
     networks:
       - gateway-net

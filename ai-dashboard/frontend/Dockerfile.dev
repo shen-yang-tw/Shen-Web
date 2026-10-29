@@ -1,0 +1,13 @@
+FROM node:20-alpine
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# 1. 直接把專案所有檔案（包含 scripts/ 與 package.json 等）先複製進來
+COPY . .
+
+# 2. 接著才執行 pnpm install（此時 preinstall 就能順利找到 scripts/require-pnpm.cjs 了）
+RUN pnpm install
+
+EXPOSE 3000
+CMD ["pnpm", "dev"]

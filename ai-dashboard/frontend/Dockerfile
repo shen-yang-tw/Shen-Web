@@ -1,39 +1,53 @@
-FROM node:24-slim AS base
+# ==============================================================================
+# AI Dashboard Frontend Dockerfile (Next.js with pnpm)
+# ==============================================================================
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm install --global pnpm@12.3.4
-
+# 1. 依賴安裝階段
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY scripts ./scripts
-RUN pnpm install --frozen-lockfile
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm fetch || true
+RUN pnpm install --frozen-lockfile --offline || pnpm install --frozen-lockfile
 
+# 2. 開發環境目標 (對應 docker-compose_2.yml 的 target: development)
 FROM base AS development
-ENV NODE_ENV=development
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 EXPOSE 3000
+CMD ["pnpm", "dev", "--", "--hostname", "0.0.0.0"]
 
+# 3. 正式環境 - Builder 階段 (接收 NEXT_PUBLIC_API_URL 建置參數)
 FROM base AS builder
-ENV NODE_ENV=production
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm typecheck && pnpm build
 
-FROM node:24-slim AS runner
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN pnpm build
+
+# 4. 正式環境 - Runner 階段 (Standalone 生產運行)
+FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1 \
-    PORT=3000 \
-    HOSTNAME=0.0.0.0
-RUN groupadd --system --gid 1001 nodejs \
-    && useradd --system --uid 1001 --gid nodejs nextjs
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
 USER nextjs
 EXPOSE 3000
-ENTRYPOINT ["node", "server.js"]
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "server.js"]
