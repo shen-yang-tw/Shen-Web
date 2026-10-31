@@ -16,7 +16,7 @@ import { ChurnRow, useChurnDataStatus } from '../hooks/useChurnData'
 import { formatCurrency, RetentionAction, RetentionActionSchema, riskTone } from '../types'
 import { useAppPreferences } from './app-shell'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+import { API_BASE_URL } from '@/lib/api' // 依照你專案的相對路徑調整
 
 const contractMessageKey = {
   'Month-to-month': 'contract.monthToMonth',

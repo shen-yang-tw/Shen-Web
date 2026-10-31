@@ -47,18 +47,12 @@ async def warm_up_churn_model() -> None:
     asyncio.get_running_loop().run_in_executor(None, get_model)
 
 
-cors_origins = [
-    origin.strip()
-    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-    if origin.strip()
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=["*"],  # 開發階段允許所有來源，或指定 ["http://localhost:3002"]
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # 允許所有 HTTP 方法 (GET, POST 等)
+    allow_headers=["*"],  # 允許所有標頭
 )
 app.include_router(ai_router)
 

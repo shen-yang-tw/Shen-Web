@@ -55,9 +55,15 @@ services:
     restart: unless-stopped
     env_file:
       - ./ai-platform/.env
+    depends_on:
+      - ollama  # 👈 確保 Ollama 先開機
     networks:
       - gateway-net
     profiles: ["ai-platform"]
+# 🚀 加入這行：強制告訴 Linux Docker 把 host.docker.internal 對應到宿主機閘道
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # ---------------------------------------------------------------------------
   # 專案三：AI 儀表板前端
@@ -91,8 +97,21 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env
-    # environment:
-    #   TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     command: tunnel --no-autoupdate run
     networks:
       - gateway-net
+
+  ollama:
+    build:
+      context: .
+      dockerfile: docker/ollama/Dockerfile
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - gateway-net  # 👈 關鍵：必須跟後端在同一個網路，後端才找得到它！

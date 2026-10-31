@@ -11,11 +11,7 @@ import { readLocal } from '@/lib/prefs';
 import { toast } from 'sonner';
 
 // 後端基底網址：去除前後空白、換行與結尾斜線，避免拼接出錯
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '')
-  .trim()
-  .replace(/\n/g, '')
-  .replace(/\r/g, '')
-  .replace(/\/+$/, '');
+const API_BASE = ''
 
 // 統一的 API 錯誤，帶有 HTTP 狀態碼；畫面依狀態碼顯示多語系訊息，不直接顯示後端原始文字
 export class ApiError extends Error {

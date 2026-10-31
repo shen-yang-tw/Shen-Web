@@ -38,13 +38,13 @@ app = FastAPI(
     openapi_url=None,
 )
 
-# CORS 只允許設定檔中列出的前端網域；不允許攜帶 Cookie，因為我們使用 Bearer Token
+# 🚀 修改後（放寬限制，允許所有常見標頭與方法）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=["*"],  # 開發環境可先設為 ["*"]，或確保 settings.cors_origins_list 包含 http://localhost:3001
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],  # 允許所有 HTTP 方法（包含 OPTIONS）
+    allow_headers=["*"],  # 允許所有標頭，防止前端帶其他 Header 時被 400 拒絕
 )
 
 

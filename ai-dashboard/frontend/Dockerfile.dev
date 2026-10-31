@@ -1,12 +1,14 @@
 FROM node:20-alpine
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
-RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# 1. 直接把專案所有檔案（包含 scripts/ 與 package.json 等）先複製進來
+# 避開 Corepack 動態下載，改用 npm 直接全域安裝指定版本的 pnpm
+RUN npm install -g pnpm@12.3.4
+
+# 複製所有檔案
 COPY . .
 
-# 2. 接著才執行 pnpm install（此時 preinstall 就能順利找到 scripts/require-pnpm.cjs 了）
+# 執行安裝
 RUN pnpm install
 
 EXPOSE 3000

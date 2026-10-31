@@ -8,7 +8,7 @@ import { AnomalyPanel, BudgetPanel, DailyLineChart, MrrTrendChart } from '../com
 import { ChurnModelCard, ChurnModelCardSchema, computeModelMetrics, formatCurrency, HIGH_RISK_THRESHOLD } from '../types'
 import { useAppPreferences } from '../components/app-shell'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+import { API_BASE_URL } from '@/lib/api' // 依照你專案的相對路徑調整
 
 export default function InsightsPage() {
   const { allRows, aiPrediction, telemetry, isLoading, retry } = useChurnData()

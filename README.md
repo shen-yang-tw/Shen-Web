@@ -66,14 +66,24 @@ my-web-empire/                    # 總根目錄 (司令部)
 ```bash
 docker stop $(docker ps -q) 2>/dev/null; docker system prune -a --volumes -f
 ```
+徹底清理殘留的容器與孤兒網路：
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down --remove-orphans
+```
+
+### 🔹 專案開發前必需確認supabase資料表已建立且服務連線是否成功
+https://docs.google.com/document/d/1EeXTxz0sD8CIWdXSQGXvpSFZSm3h2BTN-6Tt_28ZOdw/edit?tab=t.0
 
 ### 🔹 開發模式啟動指令（含熱重載與 Port 映射）
-* **啟動所有子專案**：
+* **啟動supabase與所有子專案**：
   ```bash
-  docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile "*" --build -d
+  supabase db push　&& supabase start && docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile "*" up --build -d
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile "*" up --build -d
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
   - 修改docker檔案之後：
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml down
   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile "*" build --no-cache
-  docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile "*" up -d
   ```
 * **僅啟動主作品集 (`portfolio`)**：
   ```bash
@@ -96,6 +106,10 @@ docker stop $(docker ps -q) 2>/dev/null; docker system prune -a --volumes -f
 * **停止並移除所有容器與網路**：
   ```bash
   docker compose down
+  ```
+* **重新啟動 Docker 服務**：
+  ```bash
+  sudo systemctl restart docker
   ```
 
 ### 🌐 本地網頁開發直連測試地址

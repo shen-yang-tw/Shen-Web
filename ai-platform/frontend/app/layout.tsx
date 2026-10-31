@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: 'AI 工作平台 & 向量模型',
   description: '個人使用的 AI 對話、文件向量化、模型調校與提示詞管理平台',
   // 個人工具不希望被搜尋引擎收錄
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    // apple: '/JSface.jpg',
+  },
   robots: { index: false, follow: false },
 };
 

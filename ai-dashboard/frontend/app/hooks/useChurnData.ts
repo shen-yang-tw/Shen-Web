@@ -17,7 +17,7 @@ import {
   TelemetrySchema,
 } from '../types'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+import { API_BASE_URL } from '@/lib/api' // 依照你專案的相對路徑調整
 
 export type ChurnDataSource = 'loading' | 'api' | 'sample'
 export type AIServiceStatus = 'loading' | 'generated' | 'not_configured' | 'provider_error' | 'error'

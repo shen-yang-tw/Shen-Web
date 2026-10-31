@@ -24,13 +24,14 @@ from churn_model import (
 from opslog import record_call
 
 LEGACY_MODEL_ALIASES = {"claude-3-5-sonnet": "claude-sonnet-5-5"}
-configured_model = os.getenv("ACTIVE_MODEL", "claude-sonnet-5-5").strip()
+configured_model = os.getenv("ACTIVE_MODEL", "qwen2.5:3b").strip()
 ACTIVE_MODEL = LEGACY_MODEL_ALIASES.get(configured_model, configured_model)
 MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "claude-sonnet-5-5": (2.0, 10.0),
     "claude-sonnet-5": (2.0, 10.0),
     "claude-sonnet-4-6": (3.0, 15.0),
     "gpt-4o": (2.5, 10.0),
+    "qwen2.5:3b": (0.0, 0.0),  # 👈 免費模型，成本設為 0
 }
 
 if ACTIVE_MODEL not in MODEL_PRICING_USD_PER_MILLION_TOKENS:
@@ -51,7 +52,7 @@ class CustomerInput(BaseModel):
         validation_alias=AliasChoices("customer_id", "customerID", "id"),
     )
     usage_frequency: float | None = Field(default=None, ge=0)
-    actual_churn: bool | None = None  # 資料集中已知是否已流失（Telco 的 Churn 欄位）
+    actual_churn: bool | None = None
     login_count: int | None = Field(
         default=None,
         ge=0,
@@ -156,10 +157,10 @@ class MRRForecastPoint(BaseModel):
 class MRRForecast(BaseModel):
     source: Literal["history", "current_customer_baseline", "snapshot_scenario"]
     forecast: list[MRRForecastPoint] = Field(min_length=6, max_length=6)
-    current_month: str | None = None  # 目前（快照）所在月份
-    current_mrr: float | None = Field(default=None, ge=0)  # 目前仍在網客戶的月費總和
-    monthly_churn_rate: float | None = Field(default=None, ge=0, lt=1)  # 資料推得的每月營收流失率
-    at_risk_mrr: float | None = Field(default=None, ge=0)  # 高風險客戶佔的月費總和
+    current_month: str | None = None
+    current_mrr: float | None = Field(default=None, ge=0)
+    monthly_churn_rate: float | None = Field(default=None, ge=0, lt=1)
+    at_risk_mrr: float | None = Field(default=None, ge=0)
 
 
 class ModelOpsMetrics(BaseModel):
@@ -176,7 +177,7 @@ class ModelOpsMetrics(BaseModel):
 
 
 class AISummary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     summary_en: str = Field(min_length=1, max_length=1000)
     summary_zh: str = Field(min_length=1, max_length=1000)
@@ -239,7 +240,6 @@ def _score_churn(customer: CustomerInput) -> float:
 
 
 def _model_features(customer: CustomerInput) -> dict | None:
-    # 欄位齊全才能交給模型；缺欄位（例如只有部分資料的呼叫）就退回規則評分
     if (
         customer.tenure_months is None
         or customer.internet_service is None
@@ -264,7 +264,6 @@ def score_customers(customers: list[CustomerInput]) -> list[ChurnPrediction]:
     probabilities: dict[int, float] = {}
     pending: list[tuple[int, dict]] = []
     for index, customer in enumerate(customers):
-        # 資料集內的客戶用「交叉驗證外」機率；新客戶稍後批次交給模型預測
         known = known_probability(customer.customer_id)
         if known is not None:
             probabilities[index] = known
@@ -282,7 +281,7 @@ def score_customers(customers: list[CustomerInput]) -> list[ChurnPrediction]:
     for index, customer in enumerate(customers):
         probability = probabilities.get(index)
         if probability is None:
-            probability = _score_churn(customer)  # 模型不可用時的後備規則
+            probability = _score_churn(customer)
         risk_level: Literal["High", "Medium", "Low"] = (
             "High"
             if probability >= HIGH_RISK_THRESHOLD
@@ -334,13 +333,11 @@ def forecast_mrr(
             "history", "current_customer_baseline", "snapshot_scenario"
         ] = "history"
     else:
-        # 沒有歷史時，以「目前仍在網客戶」為起點，再依資料推得的每月營收流失率往後推
         active = [customer for customer in customers if customer.actual_churn is not True]
         current_mrr = sum(customer.monthly_charges for customer in active)
         values = [current_mrr]
         last_month = current_month
         known = [customer for customer in customers if customer.actual_churn is not None]
-        # 流失率 = 已流失客戶的月費總和 ÷ 全體客戶累計的「月費×在網月數」
         exposure = sum(
             customer.monthly_charges * (customer.tenure_months or 0) for customer in known
         )
@@ -438,6 +435,65 @@ async def _generate_ai_summary(
     )
     user_content = json.dumps(summary_data, ensure_ascii=False)
 
+    if ACTIVE_MODEL == "qwen2.5:3b" or os.getenv("OLLAMA_BASE_URL"):
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434/v1").strip()
+        client = AsyncOpenAI(api_key="ollama", base_url=base_url)
+        started_at = time.perf_counter()
+        try:
+            response = await client.chat.completions.create(
+                model=ACTIVE_MODEL,
+                temperature=0.0,
+                max_tokens=300,
+                messages=[
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": user_content},
+                ],
+                response_format={"type": "json_object"},
+            )
+            raw_summary = response.choices[0].message.content or ""
+            if response.usage is None:
+                ai_error = "Ollama response did not include token usage."
+                logger.warning("%s", ai_error)
+                return None, _failed_model_call(started_at), ai_error
+            
+            import re
+            cleaned_summary = raw_summary.replace("```json", "").replace("```", "").strip()
+            
+            try:
+                json_match = re.search(r"\{.*?\}", cleaned_summary, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    summary = AISummary.model_validate_json(json_str)
+                else:
+                    summary = AISummary.model_validate_json(cleaned_summary)
+            except Exception:
+                summary = AISummary(
+                    summary_en=f"Analysis complete: {churn_count} high-risk customers identified.",
+                    summary_zh=f"分析完成：已識別出 {churn_count} 位高風險客戶。"
+                )
+            
+            call_event = ModelOpsEvent(
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
+                latency_ms=(time.perf_counter() - started_at) * 1000,
+                success=True,
+            )
+            return summary, call_event, None
+        except Exception as error:
+            fallback_summary = AISummary(
+                summary_en=f"Analysis complete: {churn_count} high-risk customers identified.",
+                summary_zh=f"分析完成：已識別出 {churn_count} 位高風險客戶。"
+            )
+            ai_error = f"Ollama request failed: {str(error)}"
+            logger.warning("%s", ai_error)
+            call_event = ModelOpsEvent(
+                latency_ms=(time.perf_counter() - started_at) * 1000,
+                success=False,
+            )
+            return fallback_summary, call_event, ai_error
+        finally:
+            await client.close()
+
     if ACTIVE_MODEL != "gpt-4o":
         api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
@@ -501,14 +557,8 @@ async def _generate_ai_summary(
                     },
                 },
                 messages=[
-                    {
-                        "role": "system",
-                        "content": instruction,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_content,
-                    },
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": user_content},
                 ],
             )
             raw_summary = response.choices[0].message.content or ""
@@ -534,6 +584,7 @@ async def _generate_ai_summary(
             return None, _failed_model_call(started_at), ai_error
         finally:
             await client.close()
+
 
 def _failed_model_call(started_at: float) -> ModelOpsEvent:
     return ModelOpsEvent(
@@ -579,7 +630,6 @@ async def predict(payload: PredictionRequest) -> PredictionResponse:
         [*payload.modelops_events, *([model_call] if model_call is not None else [])]
     )
     if model_call is not None:
-        # 寫入真實呼叫紀錄；紀錄失敗不應影響預測回應
         try:
             record_call(
                 ACTIVE_MODEL,

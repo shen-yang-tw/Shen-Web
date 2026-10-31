@@ -11,6 +11,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { getSupabase } from '@/lib/supabase';
 import type { MessageKey } from '@/lib/i18n';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { RxRocket } from "react-icons/rx"
 
 // 導覽列項目，固定只有 4 個路由
 const NAV_ITEMS: { href: string; labelKey: MessageKey }[] = [
@@ -65,8 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="border-b border-zinc-200 dark:border-zinc-800">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           {/* 網站名稱：用 h1 標示，但頁面主要標題由各頁自己的 h2 負責 */}
-          <h1 className="text-lg font-semibold">{t('common.appName')}</h1>
-
+          <h1 className="flex items-center gap-2 text-lg font-semibold"><RxRocket className="w-5 h-5" />{t('common.appName')}</h1>
           <div className="flex flex-wrap items-center gap-2">
             {/* 主要導覽：nav 元素加上 aria-label，讓螢幕閱讀器知道這是哪一組連結 */}
             <nav aria-label={t('nav.label')}>
