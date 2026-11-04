@@ -1,12 +1,27 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Phone, Mail, ArrowDown, MapPin } from 'lucide-react';
+import { Phone, Mail, ArrowDown, MapPin, Rocket, LayoutDashboard, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 // 【關鍵技術 10】：Framer Motion 聲明式微互動動畫 — 使用 motion 元件宣告式定義進場動畫、懸停效果與滾動觸發動畫，實現流暢的微互動體驗
+
+const LIVE_SITES = [
+  {
+    name: 'AI Platform',
+    icon: Rocket,
+    description: '整合 AI 對話、文件向量化（RAG）與模型調校的工作平台，支援中英文與深淺色模式。',
+    href: 'https://ai-platform.shenyang.win',
+  },
+  {
+    name: 'AI Dashboard',
+    icon: LayoutDashboard,
+    description: 'PredictFlow AI：SaaS 流失率、MRR 預測與 ModelOps 成本監控的資料儀表板。',
+    href: 'https://ai-dashboard.shenyang.win',
+  },
+];
 
 export function HeroSection() {
   return (
@@ -164,11 +179,44 @@ export function HeroSection() {
           </motion.div>
         </div>
 
+        <motion.ul
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, duration: 0.6 }}
+          aria-label="線上作品"
+          className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-2"
+        >
+          {LIVE_SITES.map(({ name, icon: Icon, description, href }) => (
+            <li
+              key={href}
+              className="group flex flex-col gap-4 rounded-2xl border border-white/40 bg-card/50 p-6 shadow-[0_8px_32px_rgba(31,64,140,0.12)] ring-1 ring-inset ring-white/20 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:bg-card/70 hover:shadow-[0_12px_40px_rgba(31,64,140,0.25)] dark:border-white/10 dark:bg-card/40 dark:ring-white/5 dark:shadow-[0_8px_32px_rgba(0,0,0,0.45)] dark:hover:bg-card/60"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-primary/25 to-accent/25 text-primary ring-1 ring-primary/30">
+                  <Icon className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <h3 className="text-xl font-semibold tracking-tight text-foreground">{name}</h3>
+              </div>
+              <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 break-all text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                aria-label={`開啟 ${name}（${href}，另開新分頁）`}
+              >
+                {href}
+                <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </a>
+            </li>
+          ))}
+        </motion.ul>
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5, duration: 0.8 }}
-          className="mt-16 flex justify-center"
+          className="mt-12 flex justify-center"
         >
           <Link
             href="/projects"

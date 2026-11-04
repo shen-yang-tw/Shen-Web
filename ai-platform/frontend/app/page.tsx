@@ -205,7 +205,7 @@ export default function ChatPage() {
             onClick={startNewChat}
             disabled={sending}
             aria-label={t('chat.newChat')}
-            className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-sky-200 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
           >
             {t('chat.newChat')}
           </button>
@@ -226,7 +226,7 @@ export default function ChatPage() {
                   disabled={sending}
                   aria-current={conv.id === activeId ? 'true' : undefined}
                   className={`w-full truncate rounded px-3 py-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-60 ${
-                    conv.id === activeId ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                    conv.id === activeId ? 'bg-sky-200 dark:bg-sky-800' : 'hover:bg-sky-200 dark:hover:bg-sky-900'
                   }`}
                 >
                   {conv.title || t('chat.untitled')}
@@ -290,8 +290,8 @@ export default function ChatPage() {
           }}
           className="space-y-3"
         >
-          <label htmlFor="chat-input" className="sr-only">
-            {t('chat.inputLabel')}
+          <label htmlFor="chat-input" className="block rounded border border-sky-300 bg-sky-200 px-3 py-2 text-sm font-semibold text-blue-900 dark:border-sky-800 dark:bg-sky-950 dark:text-blue-100">
+            {t('chat.inputInstruction')}
           </label>
           <textarea
             id="chat-input"
@@ -338,7 +338,7 @@ export default function ChatPage() {
               <button
                 type="submit"
                 disabled={!input.trim()}
-                className="rounded bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-zinc-100 dark:text-zinc-900"
+                className="btn-primary rounded bg-sky-900 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-sky-200 dark:text-zinc-900"
               >
                 {t('chat.send')}
               </button>

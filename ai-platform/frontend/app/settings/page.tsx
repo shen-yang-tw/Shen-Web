@@ -212,7 +212,7 @@ export default function SettingsPage() {
                 aria-pressed={locale === 'zh-TW'}
                 onClick={() => setLocale('zh-TW')}
                 className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  locale === 'zh-TW' ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'
+                  locale === 'zh-TW' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
                 }`}
               >
                 繁體中文
@@ -222,7 +222,7 @@ export default function SettingsPage() {
                 aria-pressed={locale === 'en'}
                 onClick={() => setLocale('en')}
                 className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  locale === 'en' ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'
+                  locale === 'en' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
                 }`}
               >
                 English
@@ -240,7 +240,7 @@ export default function SettingsPage() {
                 aria-pressed={theme === 'light'}
                 onClick={() => setTheme('light')}
                 className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  theme === 'light' ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'
+                  theme === 'light' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
                 }`}
               >
                 {t('common.themeLight')}
@@ -250,7 +250,7 @@ export default function SettingsPage() {
                 aria-pressed={theme === 'dark'}
                 onClick={() => setTheme('dark')}
                 className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  theme === 'dark' ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'
+                  theme === 'dark' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
                 }`}
               >
                 {t('common.themeDark')}
@@ -329,7 +329,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-zinc-100 dark:text-zinc-900"
+              className="btn-primary rounded bg-sky-900 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-sky-200 dark:text-zinc-900"
             >
               {saving ? t('common.saving') : editingId ? t('common.save') : t('common.create')}
             </button>
@@ -337,7 +337,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="rounded border border-zinc-300 px-4 py-2 hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                className="rounded border border-zinc-300 px-4 py-2 hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
               >
                 {t('settings.cancelEdit')}
               </button>
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => useInChat(prompt)}
                     aria-label={`${t('settings.use')}：${prompt.title}`}
-                    className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
                   >
                     {t('settings.use')}
                   </button>
@@ -368,7 +368,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => startEdit(prompt)}
                     aria-label={`${t('common.edit')}：${prompt.title}`}
-                    className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
                   >
                     {t('common.edit')}
                   </button>
@@ -390,11 +390,11 @@ export default function SettingsPage() {
       {/* 刪除確認對話框：Radix Dialog，role 改為 alertdialog，讓螢幕閱讀器把它當成需要立即回應的警示 */}
       <Dialog.Root open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
           <Dialog.Content
             role="alertdialog"
             aria-describedby={deleteDescId}
-            className="fixed left-1/2 top-1/2 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900"
+            className="fixed left-1/2 top-1/2 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 glass-strong rounded-lg p-6 text-zinc-900 dark:text-zinc-100"
           >
             <Dialog.Title className="text-lg font-semibold">{t('settings.deleteTitle')}</Dialog.Title>
             <Dialog.Description id={deleteDescId} className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -405,7 +405,7 @@ export default function SettingsPage() {
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="rounded border border-zinc-300 px-4 py-2 hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  className="rounded border border-zinc-300 px-4 py-2 hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
                 >
                   {t('common.cancel')}
                 </button>
@@ -467,7 +467,7 @@ export default function SettingsPage() {
           type="button"
           onClick={signOutAllDevices}
           aria-describedby="signout-all-hint"
-          className="rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
         >
           {t('settings.signOutAll')}
         </button>

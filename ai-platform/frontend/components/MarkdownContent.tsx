@@ -36,13 +36,13 @@ const components = {
   pre: (props: React.ComponentProps<'pre'>) => (
     <pre
       tabIndex={0}
-      className="my-2 overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs dark:bg-zinc-800"
+      className="my-2 overflow-x-auto rounded-md bg-sky-200 p-3 text-xs dark:bg-sky-800"
       {...props}
     />
   ),
   // 行內程式碼：淺底色小字
   code: (props: React.ComponentProps<'code'>) => (
-    <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-[0.85em] dark:bg-zinc-800" {...props} />
+    <code className="rounded bg-sky-200 px-1 py-0.5 font-mono text-[0.85em] dark:bg-sky-800" {...props} />
   ),
   // 表格：外層可橫向捲動，避免撐破版面
   table: (props: React.ComponentProps<'table'>) => (
@@ -51,7 +51,7 @@ const components = {
     </div>
   ),
   th: (props: React.ComponentProps<'th'>) => (
-    <th className="border border-zinc-300 bg-zinc-100 px-2 py-1 font-semibold dark:border-zinc-600 dark:bg-zinc-800" {...props} />
+    <th className="border border-zinc-300 bg-sky-200 px-2 py-1 font-semibold dark:border-zinc-600 dark:bg-sky-800" {...props} />
   ),
   td: (props: React.ComponentProps<'td'>) => (
     <td className="border border-zinc-300 px-2 py-1 dark:border-zinc-600" {...props} />

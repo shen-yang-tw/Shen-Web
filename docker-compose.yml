@@ -6,10 +6,129 @@ volumes:
   ollama-data:
   nginx-logs:
 
+# Startup order: ollama -> ai-platform-backend -> ai-platform-frontend,
+#                ai-dashboard-backend -> ai-dashboard-frontend, portfolio;
+# the gateway/tunnel start last. Dependencies use healthchecks, not just container start.
 services:
-  # ---------------------------------------------------------------------------
-  # 基礎設施：統一的 Nginx 閘道器
-  # ---------------------------------------------------------------------------
+  # Shared base: Ollama (local LLM runtime used by ai-platform)
+  ollama:
+    build:
+      context: .
+      dockerfile: docker/ollama/Dockerfile
+    restart: unless-stopped
+    environment:
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen2.5:3b}
+    ports:
+      # Loopback only; set OLLAMA_HOST_PORT if a host Ollama already uses 11434.
+      - "127.0.0.1:${OLLAMA_HOST_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    networks:
+      - gateway-net
+    profiles: ["ai-platform"]
+
+  portfolio:
+    build:
+      context: ./portfolio
+    restart: unless-stopped
+    env_file:
+      - ./portfolio/.env
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - gateway-net
+    profiles: ["portfolio"]
+
+  ai-platform-backend:
+    build:
+      context: ./ai-platform/backend
+    restart: unless-stopped
+    env_file:
+      - ./ai-platform/.env
+    depends_on:
+      ollama:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - gateway-net
+    profiles: ["ai-platform"]
+
+  ai-platform-frontend:
+    build:
+      context: ./ai-platform/frontend
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+        AI_PLATFORM_BACKEND_URL: http://ai-platform-backend:8000
+    restart: unless-stopped
+    env_file:
+      - ./ai-platform/.env
+    depends_on:
+      ai-platform-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - gateway-net
+    profiles: ["ai-platform"]
+
+  ai-dashboard-backend:
+    build:
+      context: ./ai-dashboard/backend
+    restart: unless-stopped
+    env_file:
+      - ./ai-dashboard/.env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - gateway-net
+    profiles: ["ai-dashboard"]
+
+  ai-dashboard-frontend:
+    build:
+      context: ./ai-dashboard/frontend
+    restart: unless-stopped
+    env_file:
+      - ./ai-dashboard/.env
+    depends_on:
+      ai-dashboard-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - gateway-net
+    profiles: ["ai-dashboard"]
+
   gateway:
     image: nginx:latest
     restart: unless-stopped
@@ -22,76 +141,6 @@ services:
     networks:
       - gateway-net
 
-  # ---------------------------------------------------------------------------
-  # 專案一：主作品集網站
-  # ---------------------------------------------------------------------------
-  portfolio:
-    build:
-      context: ./portfolio
-    restart: unless-stopped
-    env_file:
-      - ./portfolio/.env
-    networks:
-      - gateway-net
-    profiles: ["portfolio"]
-
-  # ---------------------------------------------------------------------------
-  # 專案二：AI 平台前端
-  # ---------------------------------------------------------------------------
-  ai-platform-frontend:
-    build:
-      context: ./ai-platform/frontend
-    restart: unless-stopped
-    env_file:
-      - ./ai-platform/.env
-    networks:
-      - gateway-net
-    profiles: ["ai-platform"]
-
-  # 專案二：AI 平台後端
-  ai-platform-backend:
-    build:
-      context: ./ai-platform/backend
-    restart: unless-stopped
-    env_file:
-      - ./ai-platform/.env
-    depends_on:
-      - ollama  # 👈 確保 Ollama 先開機
-    networks:
-      - gateway-net
-    profiles: ["ai-platform"]
-# 🚀 加入這行：強制告訴 Linux Docker 把 host.docker.internal 對應到宿主機閘道
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # ---------------------------------------------------------------------------
-  # 專案三：AI 儀表板前端
-  # ---------------------------------------------------------------------------
-  ai-dashboard-frontend:
-    build:
-      context: ./ai-dashboard/frontend
-    restart: unless-stopped
-    env_file:
-      - ./ai-dashboard/.env
-    networks:
-      - gateway-net
-    profiles: ["ai-dashboard"]
-    
-  # 專案三：AI 儀表板後端
-  ai-dashboard-backend:
-    build:
-      context: ./ai-dashboard/backend
-    restart: unless-stopped
-    env_file:
-      - ./ai-dashboard/.env
-    networks:
-      - gateway-net
-    profiles: ["ai-dashboard"]
-
-  # ---------------------------------------------------------------------------
-  # 基礎設施：Cloudflare Tunnel
-  # ---------------------------------------------------------------------------
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
@@ -102,16 +151,3 @@ services:
     command: tunnel --no-autoupdate run
     networks:
       - gateway-net
-
-  ollama:
-    build:
-      context: .
-      dockerfile: docker/ollama/Dockerfile
-    container_name: ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - gateway-net  # 👈 關鍵：必須跟後端在同一個網路，後端才找得到它！

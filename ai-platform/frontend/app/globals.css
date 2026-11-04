@@ -10,12 +10,139 @@ html {
   font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
 }
 
-/* 所有可操作的按鈕都顯示可點擊游標，停用按鈕則保留原生游標狀態 */
+/* 玻璃風格設計變數：淺色與深色各一組，所有玻璃元件共用，確保文字對比符合 WCAG AA */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-hover: rgba(255, 255, 255, 0.85);
+  --glass-shadow: 0 8px 32px rgba(15, 40, 90, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --field-border: rgba(30, 58, 110, 0.45);
+  --accent-from: #1d4ed8;
+  --accent-to: #0e7490;
+  --accent-text: #ffffff;
+}
+html.dark {
+  --glass-bg: rgba(8, 14, 34, 0.58);
+  --glass-bg-strong: rgba(8, 14, 34, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-hover: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --field-border: rgba(190, 210, 255, 0.5);
+  --accent-from: #7dd3fc;
+  --accent-to: #a5b4fc;
+  --accent-text: #0b1226;
+}
+
+/* 全頁背景照片：固定在視窗後方並等比例填滿（cover）；淺色為晴朗藍天，深色為星空夜景 */
+body {
+  background-color: white;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: white url("/bg-light.jpg") center / cover no-repeat;
+  background-blend-mode: hard-light;
+  opacity: 0.2;
+}
+html.dark body {
+  background-color: #060d1f;
+}
+html.dark body::before {
+  background: #060d1f url("/bg-dark.jpg") center 30% / cover no-repeat;
+  background-blend-mode: normal;
+  opacity: 1;
+}
+
+/* 玻璃面板：半透明底色 + 背景模糊 + 細亮邊 + 柔和陰影 */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-strong {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* 主要按鈕與目前頁面導覽：科技感漸層，文字色與底色對比皆大於 4.5:1 */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  color: var(--accent-text);
+  border-color: transparent;
+  box-shadow: 0 2px 12px rgba(14, 116, 144, 0.35);
+}
+.btn-primary:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+/* 表單欄位統一為玻璃質感 */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  background: var(--glass-bg-strong);
+  border-color: var(--field-border);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.dark textarea,
+html.dark select {
+  color: #f4f4f5;
+}
+
+/* 驗證失敗的欄位維持紅色邊框 */
+input[aria-invalid="true"] {
+  border-color: #b91c1c;
+}
+html.dark input[aria-invalid="true"] {
+  border-color: #fca5a5;
+}
+
+/* 帶邊框的次要按鈕：玻璃質感 */
+button.border:not(.btn-primary),
+a.border {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+button.border:not(.btn-primary):not(:disabled):hover {
+  background: var(--glass-hover);
+}
+
+/* 瀏覽器不支援 backdrop-filter 時，改用較不透明的底色維持文字對比 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg: rgba(255, 255, 255, 0.9);
+    --glass-bg-strong: rgba(255, 255, 255, 0.95);
+  }
+  html.dark {
+    --glass-bg: rgba(8, 14, 34, 0.9);
+    --glass-bg-strong: rgba(8, 14, 34, 0.95);
+  }
+}
+
+/* header 與 footer 只保留靠內容那一側的細邊線 */
+.glass-bar-top {
+  border-width: 0 0 1px;
+}
+.glass-bar-bottom {
+  border-width: 1px 0 0;
+}
+
+/* 可點擊的按鈕顯示手形指標 */
 button:not(:disabled) {
   cursor: pointer;
 }
 
-/* 使用者設定「減少動態效果」時，把動畫與轉場縮到幾乎不可見（WCAG 2.3.3） */
+/* 使用者設定減少動態時，關閉所有動畫與轉場（WCAG 2.3.3） */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

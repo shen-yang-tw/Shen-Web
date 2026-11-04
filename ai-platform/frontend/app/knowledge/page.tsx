@@ -177,7 +177,7 @@ export default function KnowledgePage() {
           <button
             type="submit"
             disabled={!selectedFile || uploading}
-            className="rounded bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-zinc-100 dark:text-zinc-900"
+            className="btn-primary rounded bg-sky-900 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-sky-200 dark:text-zinc-900"
           >
             {uploading ? t('knowledge.uploading') : t('knowledge.upload')}
           </button>
@@ -189,7 +189,7 @@ export default function KnowledgePage() {
             type="button"
             onClick={handleSeed}
             disabled={seeding}
-            className="rounded border border-zinc-300 px-4 py-2 hover:bg-zinc-100 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="rounded border border-zinc-300 px-4 py-2 hover:bg-sky-200 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
           >
             {seeding ? t('knowledge.seeding') : t('knowledge.seed')}
           </button>

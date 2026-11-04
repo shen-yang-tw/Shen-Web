@@ -8,7 +8,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useApp } from '@/components/Providers';
 import { AuthGate } from '@/components/AuthGate';
-import { getSupabase } from '@/lib/supabase';
+import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { MessageKey } from '@/lib/i18n';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { RxRocket } from "react-icons/rx"
@@ -27,16 +28,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   // 取得目前路徑，用來標示導覽列中的目前頁面
   const pathname = usePathname();
   // 是否已登入，決定要不要顯示登出按鈕
-  const [signedIn, setSignedIn] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const signedIn = hasSession;
   // 目前登入的電子郵件，顯示在頂部讓使用者確認自己正在使用哪個帳號
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [currentYear, setCurrentYear] = useState<number | null>(null);
+  const [changeOpen, setChangeOpen] = useState(false);
 
   // 訂閱登入狀態變化，登入或登出時自動更新按鈕與帳號顯示
   useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+    if (!isSupabaseConfigured()) return;
     const supabase = getSupabase();
     // 回呼參數要明確標註型別：Supabase 這個方法有多載，TypeScript 無法自動推斷參數型別
     const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      setSignedIn(Boolean(session));
+      setHasSession(Boolean(session));
       setUserEmail(session?.user.email ?? null);
     });
     // 元件卸載時取消訂閱，避免記憶體洩漏
@@ -58,12 +64,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* 跳至內容連結：平常隱藏，鍵盤按 Tab 第一次時才出現，方便跳過導覽列 */}
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-4 focus:py-2 focus:text-zinc-900 focus:shadow dark:focus:bg-zinc-900 dark:focus:text-zinc-100"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-4 focus:py-2 focus:text-zinc-900 focus:shadow dark:focus:bg-sky-900 dark:focus:text-zinc-100"
       >
         {t('common.skip')}
       </a>
 
-      <header className="border-b border-zinc-200 dark:border-zinc-800">
+      <header className="glass glass-bar-top">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           {/* 網站名稱：用 h1 標示，但頁面主要標題由各頁自己的 h2 負責 */}
           <h1 className="flex items-center gap-2 text-lg font-semibold"><RxRocket className="w-5 h-5" />{t('common.appName')}</h1>
@@ -76,18 +82,30 @@ export function AppShell({ children }: { children: ReactNode }) {
                   const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
                   return (
                     <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        // aria-current="page" 告訴螢幕閱讀器這是目前所在的頁面
-                        aria-current={active ? 'page' : undefined}
-                        className={`inline-block rounded px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                          active
-                            ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                            : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        {t(item.labelKey)}
-                      </Link>
+                      {signedIn ? (
+                        <Link
+                          href={item.href}
+                          // aria-current="page" 告訴螢幕閱讀器這是目前所在的頁面
+                          aria-current={active ? 'page' : undefined}
+                          className={`inline-block rounded px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:focus-visible:outline-blue-300 ${
+                            active
+                              ? 'btn-primary'
+                              : 'hover:bg-white/60 dark:hover:bg-white/10'
+                          }`}
+                        >
+                          {t(item.labelKey)}
+                        </Link>
+                      ) : (
+                        // 未登入：不是連結，無法點擊也無法用鍵盤切換；aria-disabled 讓螢幕閱讀器知道為停用
+                        <span
+                          aria-disabled="true"
+                          title={t('auth.nav.locked')}
+                          className="inline-block cursor-not-allowed select-none rounded px-3 py-2 text-sm text-zinc-700 opacity-60 dark:text-zinc-300"
+                        >
+                          {t(item.labelKey)}
+                          <span className="sr-only">（{t('auth.nav.locked')}）</span>
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -99,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => setLocale(locale === 'zh-TW' ? 'en' : 'zh-TW')}
               aria-label={locale === 'zh-TW' ? t('common.switchLanguage') : t('common.switchLanguageZh')}
-              className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
             >
               {locale === 'zh-TW' ? 'EN' : '中文'}
             </button>
@@ -110,22 +128,33 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-pressed={theme === 'dark'}
               aria-label={theme === 'dark' ? t('common.themeToLight') : t('common.themeToDark')}
-              className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
             >
               {theme === 'dark' ? t('common.themeLight') : t('common.themeDark')}
             </button>
 
             {/* 登出按鈕與帳號顯示只在已登入時出現 */}
             {signedIn && userEmail && (
-              <span className="max-w-[16rem] truncate text-sm text-zinc-600 dark:text-zinc-400" title={userEmail}>
+              <span className="max-w-[16rem] truncate text-sm text-zinc-800 dark:text-zinc-200" title={userEmail}>
                 {t('common.signedInAs', { email: userEmail })}
               </span>
             )}
             {signedIn && (
               <button
                 type="button"
+                onClick={() => {
+                  setChangeOpen(true);
+                }}
+                className="rounded border border-zinc-500 px-3 py-2 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-zinc-400 dark:hover:bg-sky-800 dark:focus-visible:outline-blue-300"
+              >
+                {t('auth.change.open')}
+              </button>
+            )}
+            {signedIn && (
+              <button
+                type="button"
                 onClick={handleSignOut}
-                className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                className="rounded border border-zinc-300 px-3 py-2 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
               >
                 {t('common.signOut')}
               </button>
@@ -135,10 +164,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* 主要內容區：id="main" 是跳至內容連結的目標，tabIndex=-1 讓連結跳轉後焦點能真正移過來 */}
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 focus:outline-none">
+      <main id="main" tabIndex={-1} className="mx-auto my-4 w-[calc(100%-2rem)] max-w-6xl flex-1 glass rounded-xl px-4 py-6 focus:outline-none">
         {/* AuthGate 負責判斷登入狀態：未登入顯示登入面板，已登入才顯示頁面內容 */}
         <AuthGate>{children}</AuthGate>
       </main>
+      <footer className="glass glass-bar-bottom px-4 py-4 text-center text-sm text-zinc-800 dark:text-zinc-200">
+        {currentYear !== null ? t('common.copyright', { year: currentYear }) : null}
+      </footer>
+      <ChangePasswordDialog open={changeOpen} onOpenChange={setChangeOpen} />
     </div>
   );
 }

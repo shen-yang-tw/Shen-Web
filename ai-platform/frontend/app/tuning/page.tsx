@@ -164,13 +164,13 @@ export default function TuningPage() {
             onValueChange={([v]) => updateParams({ ...params, temperature: round1(v) })}
             aria-labelledby={`${tempHelpId}-label`}
           >
-            <Slider.Track className="relative h-2 grow rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <Slider.Range className="absolute h-full rounded-full bg-zinc-900 dark:bg-zinc-100" />
+            <Slider.Track className="relative h-2 grow rounded-full bg-sky-200 dark:bg-sky-800">
+              <Slider.Range className="absolute h-full rounded-full bg-sky-900 dark:bg-sky-200" />
             </Slider.Track>
             {/* Thumb 會自動帶上 role="slider"，支援方向鍵與 Home、End 鍵操作 */}
             <Slider.Thumb
               aria-label={t('tuning.temperature')}
-              className="block h-5 w-5 rounded-full border-2 border-zinc-900 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-100 dark:bg-zinc-900"
+              className="block h-5 w-5 rounded-full border-2 border-zinc-900 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-100 dark:bg-sky-900"
             />
           </Slider.Root>
           <p id={tempHelpId} className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -197,12 +197,12 @@ export default function TuningPage() {
             onValueChange={([v]) => updateParams({ ...params, maxTokens: v })}
             aria-labelledby={`${tokenHelpId}-label`}
           >
-            <Slider.Track className="relative h-2 grow rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <Slider.Range className="absolute h-full rounded-full bg-zinc-900 dark:bg-zinc-100" />
+            <Slider.Track className="relative h-2 grow rounded-full bg-sky-200 dark:bg-sky-800">
+              <Slider.Range className="absolute h-full rounded-full bg-sky-900 dark:bg-sky-200" />
             </Slider.Track>
             <Slider.Thumb
               aria-label={t('tuning.maxTokens')}
-              className="block h-5 w-5 rounded-full border-2 border-zinc-900 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-100 dark:bg-zinc-900"
+              className="block h-5 w-5 rounded-full border-2 border-zinc-900 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-100 dark:bg-sky-900"
             />
           </Slider.Root>
           <p id={tokenHelpId} className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -245,7 +245,7 @@ export default function TuningPage() {
                 type="button"
                 onClick={compare}
                 disabled={!question.trim()}
-                className="rounded bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-zinc-100 dark:text-zinc-900"
+                className="btn-primary rounded bg-sky-900 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-sky-200 dark:text-zinc-900"
               >
                 {t('tuning.compare')}
               </button>

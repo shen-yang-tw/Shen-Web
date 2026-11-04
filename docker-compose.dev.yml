@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   portfolio:
     build:
@@ -7,7 +5,7 @@ services:
       dockerfile: Dockerfile.dev
     command: npm run dev
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - ./portfolio:/app
       - /app/node_modules       # 👈 致命關鍵：保護容器內的 Linux 套件不被本機覆蓋
@@ -15,14 +13,15 @@ services:
     environment:
       - NODE_ENV=development
       - HOSTNAME=0.0.0.0
+      - WATCHPACK_POLLING=true
 
   ai-platform-frontend:
     build:
       context: ./ai-platform/frontend
       dockerfile: Dockerfile.dev
-    command: npm run dev
+    command: npm run dev -- --webpack --hostname 0.0.0.0
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     volumes:
       - ./ai-platform/frontend:/app
       - /app/node_modules       # 👈 致命關鍵
@@ -30,11 +29,13 @@ services:
     environment:
       - NODE_ENV=development
       - HOSTNAME=0.0.0.0
+      - WATCHPACK_POLLING=true
+      - AI_PLATFORM_BACKEND_URL=http://ai-platform-backend:8000
 
   ai-platform-backend:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./ai-platform/backend:/app
 
@@ -44,7 +45,7 @@ services:
       dockerfile: Dockerfile.dev
     command: pnpm dev
     ports:
-      - "3002:3000"
+      - "127.0.0.1:3002:3000"
     volumes:
       - ./ai-dashboard/frontend:/app
       - /app/node_modules       # 👈 致命關鍵
@@ -52,10 +53,11 @@ services:
     environment:
       - NODE_ENV=development
       - HOSTNAME=0.0.0.0
+      - WATCHPACK_POLLING=true
 
   ai-dashboard-backend:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     volumes:
       - ./ai-dashboard/backend:/app

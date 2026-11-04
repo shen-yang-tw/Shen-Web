@@ -38,7 +38,7 @@ function ThinkingIndicator() {
         {[0, 1, 2].map((dot) => (
           <span
             key={dot}
-            className="size-1.5 rounded-full bg-zinc-500 motion-safe:animate-bounce dark:bg-zinc-400"
+            className="size-1.5 rounded-full bg-sky-2000 motion-safe:animate-bounce dark:bg-sky-400"
             style={{ animationDelay: `${dot * 150}ms` }}
           />
         ))}

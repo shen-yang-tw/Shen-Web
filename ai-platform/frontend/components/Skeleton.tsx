@@ -18,7 +18,7 @@ export function Skeleton({ lines = 3 }: { lines?: number }) {
         <div
           key={index}
           aria-hidden="true"
-          className="h-4 w-full animate-pulse rounded bg-zinc-200 dark:bg-zinc-800"
+          className="h-4 w-full animate-pulse rounded bg-sky-200 dark:bg-sky-800"
         />
       ))}
     </div>

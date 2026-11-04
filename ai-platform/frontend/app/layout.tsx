@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* 內容是固定字串，不含使用者輸入，所以用 dangerouslySetInnerHTML 是安全的 */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="min-h-screen bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+      <body className="min-h-screen text-zinc-900 antialiased dark:text-zinc-100">
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

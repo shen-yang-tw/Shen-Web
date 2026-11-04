@@ -2,15 +2,15 @@
 # AI Dashboard Frontend Dockerfile (Next.js with pnpm)
 # ==============================================================================
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@12.3.4 --activate
 
 # 1. 依賴安裝階段
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm fetch || true
-RUN pnpm install --frozen-lockfile --offline || pnpm install --frozen-lockfile
+COPY scripts ./scripts
+RUN pnpm install --frozen-lockfile
 
 # 2. 開發環境目標 (對應 docker-compose_2.yml 的 target: development)
 FROM base AS development

@@ -38,10 +38,11 @@ app = FastAPI(
     openapi_url=None,
 )
 
-# 🚀 修改後（放寬限制，允許所有常見標頭與方法）
+# CORS 白名單來自 CORS_ALLOWED_ORIGINS（瀏覽器預設經由前端同源 /api 代理，此處僅供直連後端的情境）。
+# 前端與後端 API 為不同來源時（例如 localhost:3001 直連 :8000），需把該網址加入白名單
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 開發環境可先設為 ["*"]，或確保 settings.cors_origins_list 包含 http://localhost:3001
+    allow_origins=settings.cors_origins_list,
     allow_credentials=False,
     allow_methods=["*"],  # 允許所有 HTTP 方法（包含 OPTIONS）
     allow_headers=["*"],  # 允許所有標頭，防止前端帶其他 Header 時被 400 拒絕

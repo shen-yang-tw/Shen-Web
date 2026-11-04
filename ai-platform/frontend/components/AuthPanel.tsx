@@ -1,199 +1,354 @@
 // frontend/components/AuthPanel.tsx
 'use client';
 
-// 內嵌登入面板：因為本專案只允許 4 個頁面路由，所以登入直接在首頁區塊內完成，不另開登入頁。
-import { useId, useState, type FormEvent } from 'react';
-// isAuthRetryableFetchError 用來判斷是否為網路層失敗（例如 Supabase 服務沒有啟動）
-import { isAuthRetryableFetchError } from '@supabase/supabase-js';
-// Toast 用於註冊成功後的提示，因為成功後此面板會被卸載
+// 未登入時顯示的面板：登入與註冊是兩個完全獨立的表單（各自的欄位、驗證、錯誤與狀態），以頁籤切換。
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
+import { clearRecoveryPending } from '@/lib/recovery';
+import { PasswordField, TextField } from '@/components/AuthFields';
+import { PRIMARY_BUTTON } from '@/components/Modal';
 import { useApp } from '@/components/Providers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  mapEmailActionError,
+  mapSignInError,
+  mapSignUpError,
+  validateConfirm,
+  validateEmail,
+  validateNewPassword,
+  validateSignInPassword,
+  type ErrorKey,
+  type MappedError,
+} from '@/lib/authErrors';
+import {
+  FORGOT_THRESHOLD,
+  MAX_FAILURES,
+  getSignInState,
+  lockSignIn,
+  recordSignInFailure,
+  resetSignInState,
+} from '@/lib/authLock';
 import { getSupabase } from '@/lib/supabase';
 
-// 錯誤訊息的翻譯 key 集合，集中定義避免拼錯
-type AuthErrorKey = 'auth.failed' | 'auth.networkError' | 'auth.invalidInput';
-// 面板的兩種模式：登入或註冊，標題、按鈕與送出行為都依模式決定
+export type AuthErrorKey = ErrorKey;
 type AuthMode = 'signIn' | 'signUp';
 
-export function AuthPanel() {
+const ERROR_BOX = 'rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200';
+const LINK_BUTTON =
+  'rounded text-sm font-medium text-blue-800 underline hover:text-blue-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:text-blue-300 dark:hover:text-blue-200 dark:focus-visible:outline-blue-300';
+
+export function AuthPanel({ initialError }: { initialError?: AuthErrorKey }) {
   const { t } = useApp();
-  // useId 產生穩定唯一的 id，讓 label 與 input 正確關聯（無障礙必要）
-  const headingId = useId();
-  const emailId = useId();
-  const passwordId = useId();
-  const errorId = useId();
   const [mode, setMode] = useState<AuthMode>('signIn');
-  const [email, setEmail] = useState('');
+  // 切換頁籤時帶入已輸入的信箱，減少重打
+  const [sharedEmail, setSharedEmail] = useState('');
+
+  return (
+    <section className="mx-auto max-w-md glass-strong rounded-lg p-6 text-zinc-900 dark:text-zinc-100">
+      {initialError && (
+        <p role="alert" className={`${ERROR_BOX} mb-4`}>
+          {t(initialError)}
+        </p>
+      )}
+      <Tabs value={mode} onValueChange={(next) => setMode(next as AuthMode)} className="gap-4">
+        <TabsList aria-label={t('auth.modeGroup')}>
+          <TabsTrigger value="signIn">{t('auth.signIn')}</TabsTrigger>
+          <TabsTrigger value="signUp">{t('auth.signUp')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="signIn">
+          <SignInForm initialEmail={sharedEmail} onEmailChange={setSharedEmail} />
+        </TabsContent>
+        <TabsContent value="signUp">
+          <SignUpForm initialEmail={sharedEmail} onEmailChange={setSharedEmail} />
+        </TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
+function SignInForm({ initialEmail, onEmailChange }: { initialEmail: string; onEmailChange: (v: string) => void }) {
+  const { t } = useApp();
+  const headingId = useId();
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
-  // busy 期間禁止重複送出
+  const [emailError, setEmailError] = useState<ErrorKey | null>(null);
+  const [passwordError, setPasswordError] = useState<ErrorKey | null>(null);
+  const [formError, setFormError] = useState<MappedError | null>(null);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
-  // 錯誤訊息的 key；null 表示沒有錯誤
-  const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null);
-  // 註冊完成的提示：送出後顯示在狀態區，不再沿用登入的標題
-  const [signUpDone, setSignUpDone] = useState(false);
+  const [failures, setFailures] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resent, setResent] = useState(false);
 
-  // 檢查輸入是否合法：信箱不可為空，密碼至少 6 字元（與 Supabase 預設規則一致）
-  // 合法回傳 null，不合法回傳錯誤 key
-  function validateInput(): AuthErrorKey | null {
-    if (!email.trim() || password.length < 6) {
-      return 'auth.invalidInput';
-    }
-    return null;
+  function applyState(state: { failures: number; lockedUntil: number }) {
+    setFailures(state.failures);
+    setLockedUntil(state.lockedUntil);
   }
 
-  // 把 Supabase 的錯誤轉成使用者看得懂的訊息：網路錯誤與帳密錯誤要分開顯示
-  function toErrorKey(error: unknown): AuthErrorKey {
-    return isAuthRetryableFetchError(error) ? 'auth.networkError' : 'auth.failed';
-  }
+  // 載入時還原失敗次數
+  useEffect(() => {
+    applyState(getSignInState());
+  }, []);
 
-  // 切換模式時清除上一個模式殘留的錯誤與結果提示
-  function switchMode(next: AuthMode) {
-    setMode(next);
-    setErrorKey(null);
-    setSignUpDone(false);
-  }
-
-  // 送出表單：依目前模式決定是登入還是註冊，兩者的邏輯完全分開
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    // 阻止表單預設的整頁重新載入
-    event.preventDefault();
-    setSignUpDone(false);
-    const invalid = validateInput();
-    if (invalid) {
-      setErrorKey(invalid);
+  // 鎖定到期的那一刻自動解除，不需要重新整理頁面
+  useEffect(() => {
+    if (lockedUntil <= 0) return;
+    const unlock = () => {
+      const state = getSignInState();
+      applyState(state);
+      if (state.lockedUntil === 0) setFormError(null);
+    };
+    const wait = lockedUntil - Date.now();
+    if (wait <= 0) {
+      unlock();
       return;
     }
+    const timer = window.setTimeout(unlock, wait + 50);
+    return () => window.clearTimeout(timer);
+  }, [lockedUntil]);
+
+  const locked = lockedUntil > Date.now();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResent(false);
+    const current = getSignInState();
+    applyState(current);
+    if (current.lockedUntil > Date.now()) return;
+    const ee = validateEmail(email);
+    const pe = validateSignInPassword(password);
+    setEmailError(ee);
+    setPasswordError(pe);
+    setFormError(null);
+    setAttemptsLeft(null);
+    if (ee || pe) return;
+
     setBusy(true);
-    setErrorKey(null);
-    // try/finally 確保無論成功、失敗或拋出例外，都會解除 busy，避免按鈕永久停用
     try {
-      const supabase = getSupabase();
-      const trimmedEmail = email.trim();
-      if (mode === 'signIn') {
-        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
-        if (error) {
-          setErrorKey(toErrorKey(error));
-          return;
-        }
-        // 成功時 AuthGate 會透過 onAuthStateChange 自動切換畫面、面板會被卸載，所以改用全域 Toast 告知使用者
-        toast.success(t('auth.signInSuccess'));
-        return;
-      }
-      const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password });
+      clearRecoveryPending();
+      const { error } = await getSupabase().auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
-        setErrorKey(toErrorKey(error));
+        const mapped = mapSignInError(error);
+        setFormError(mapped);
+        if (mapped.rateLimited) {
+          applyState(lockSignIn());
+        } else if (mapped.key === 'auth.invalidCredentials') {
+          // 只有「密碼錯誤」才累計次數；網路或服務問題不應讓使用者被鎖
+          const next = recordSignInFailure();
+          applyState(next);
+          if (next.lockedUntil === 0) setAttemptsLeft(Math.max(0, MAX_FAILURES + 1 - next.failures));
+        }
         return;
       }
-      // 若專案沒有開啟信箱驗證，註冊會直接帶回 session，AuthGate 會自動進入頁面
-      // 面板此時會被卸載，所以改用全域 Toast 告知使用者已註冊並登入
-      if (data.session) {
-        toast.success(t('auth.signUpSuccess'));
-      } else {
-        setSignUpDone(true);
-      }
-    } catch {
-      // 例如環境變數缺少時 getSupabase 會拋出例外
-      setErrorKey('auth.failed');
+      resetSignInState();
+      toast.success(t('auth.signInSuccess'));
+    } catch (error) {
+      setFormError(mapSignInError(error));
     } finally {
       setBusy(false);
     }
   }
 
-  // 狀態提示文字：處理中顯示進度，註冊完成顯示結果；沒有狀態時為空字串
-  const statusText = busy
-    ? t(mode === 'signIn' ? 'auth.signingIn' : 'auth.signingUp')
-    : signUpDone
-      ? t('auth.signUpDone')
-      : '';
+  async function handleResend() {
+    const ee = validateEmail(email);
+    setEmailError(ee);
+    if (ee) return;
+    setBusy(true);
+    try {
+      const { error } = await getSupabase().auth.resend({ type: 'signup', email: email.trim() });
+      if (error) {
+        setFormError(mapEmailActionError(error));
+        return;
+      }
+      setFormError(null);
+      setResent(true);
+    } catch (error) {
+      setFormError(mapEmailActionError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const showForgot = failures >= FORGOT_THRESHOLD;
+  const alertKey: ErrorKey | null = locked ? 'auth.signInLocked' : (formError?.key ?? null);
 
   return (
-    <section aria-labelledby={headingId} className="mx-auto max-w-md rounded-lg border border-zinc-200 p-6 dark:border-zinc-800">
-      {/* 登入／註冊切換放在區塊最上方，使用 shadcn Tabs（底線樣式）；方向鍵與 Enter/Space 由 Radix 處理 */}
-      <Tabs value={mode} onValueChange={(next) => switchMode(next as AuthMode)} className="gap-4">
-        <TabsList aria-label={t('auth.modeGroup')}>
-          <TabsTrigger value="signIn" disabled={busy}>
-            {t('auth.signIn')}
-          </TabsTrigger>
-          <TabsTrigger value="signUp" disabled={busy}>
-            {t('auth.signUp')}
-          </TabsTrigger>
-        </TabsList>
+    <div className="space-y-4">
+      <h2 id={headingId} className="text-xl font-semibold">
+        {t('auth.title')}
+      </h2>
+      <p className="text-sm text-zinc-700 dark:text-zinc-300">{t('auth.description')}</p>
 
-        {/* 內容區只渲染目前選中的模式，標題、說明、狀態與表單都跟著切換 */}
-        <TabsContent value={mode} className="space-y-4">
-          <h2 id={headingId} className="text-xl font-semibold">
-            {mode === 'signIn' ? t('auth.title') : t('auth.signUpTitle')}
-          </h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {mode === 'signIn' ? t('auth.description') : t('auth.signUpDescription')}
-          </p>
+      <div role="status" aria-live="polite" className="empty:hidden rounded bg-sky-200 p-3 text-sm text-blue-900 dark:bg-sky-950 dark:text-blue-200">
+        {busy ? t('auth.signingIn') : resent ? t('auth.resendDone') : ''}
+      </div>
 
-          {/* 狀態區常駐在 DOM 中，內容變化時螢幕閱讀器才會朗讀；沒有文字時由 empty:hidden 隱藏 */}
-          <div
-            role="status"
-            aria-live="polite"
-            className={`empty:hidden rounded p-3 text-sm ${
-              signUpDone
-                ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-300'
-                : 'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-            }`}
-          >
-            {statusText}
-          </div>
-
-          {/* 錯誤訊息用 role="alert"，出現時螢幕閱讀器會立刻朗讀 */}
-          {errorKey && (
-            <p id={errorId} role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-              {t(errorKey)}
-            </p>
-          )}
-
-          <form onSubmit={handleSubmit} aria-describedby={errorKey ? errorId : undefined} aria-busy={busy} className="space-y-3">
-            <div className="space-y-1">
-              <label htmlFor={emailId} className="block text-sm font-medium">
-                {t('auth.email')}
-              </label>
-              <input
-                id={emailId}
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded border border-zinc-300 bg-transparent px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700"
-              />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor={passwordId} className="block text-sm font-medium">
-                {t('auth.password')}
-              </label>
-              <input
-                id={passwordId}
-                type="password"
-                name="password"
-                // 登入用 current-password，註冊用 new-password，讓密碼管理工具知道要帶入或建議新密碼
-                autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded border border-zinc-300 bg-transparent px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700"
-              />
-            </div>
-
-            {/* 送出按鈕文字跟著模式變化，讓使用者清楚知道按下去會做什麼；按 Enter 也會送出目前模式的表單 */}
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded bg-zinc-900 px-4 py-2 text-white hover:bg-zinc-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              {mode === 'signIn' ? t('auth.signIn') : t('auth.submitSignUp')}
+      {alertKey && (
+        <div role="alert" className={ERROR_BOX}>
+          <p>{t(alertKey, !locked && formError?.code ? { code: formError.code } : undefined)}</p>
+          {!locked && attemptsLeft !== null && attemptsLeft > 0 && <p className="mt-1">{t('auth.attemptsLeft', { n: attemptsLeft })}</p>}
+          {!locked && alertKey === 'auth.emailNotConfirmed' && (
+            <button type="button" onClick={handleResend} disabled={busy} className={`${LINK_BUTTON} mt-2`}>
+              {t('auth.resendConfirm')}
             </button>
-          </form>
-        </TabsContent>
-      </Tabs>
-    </section>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate aria-labelledby={headingId} aria-busy={busy} className="space-y-3">
+        <TextField
+          label={t('auth.email')}
+          hint={t('auth.hint.email')}
+          errorKey={emailError}
+          value={email}
+          onChange={(v) => {
+            setEmail(v);
+            onEmailChange(v);
+          }}
+          name="email"
+          autoComplete="username"
+          placeholder="name@example.com"
+          disabled={locked}
+        />
+        <PasswordField
+          label={t('auth.password')}
+          hint={t('auth.hint.signInPassword')}
+          errorKey={passwordError}
+          value={password}
+          onChange={setPassword}
+          name="password"
+          autoComplete="current-password"
+          disabled={locked}
+        />
+        <button type="submit" disabled={busy || locked} className={PRIMARY_BUTTON}>
+          {t('auth.signIn')}
+        </button>
+      </form>
+
+      {showForgot && (
+        <div className="rounded border border-zinc-500 p-3 text-sm">
+          <p>{t('auth.forgot.hint', { n: failures })}</p>
+          <button type="button" onClick={() => setForgotOpen(true)} className={`${LINK_BUTTON} mt-1`}>
+            {t('auth.forgot.open')}
+          </button>
+        </div>
+      )}
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} defaultEmail={email} />
+    </div>
+  );
+}
+
+function SignUpForm({ initialEmail, onEmailChange }: { initialEmail: string; onEmailChange: (v: string) => void }) {
+  const { t } = useApp();
+  const headingId = useId();
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [emailError, setEmailError] = useState<ErrorKey | null>(null);
+  const [passwordError, setPasswordError] = useState<ErrorKey | null>(null);
+  const [confirmError, setConfirmError] = useState<ErrorKey | null>(null);
+  const [formError, setFormError] = useState<MappedError | null>(null);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDone(false);
+    const ee = validateEmail(email);
+    const pe = validateNewPassword(password);
+    const ce = pe ? null : validateConfirm(password, confirm);
+    setEmailError(ee);
+    setPasswordError(pe);
+    setConfirmError(ce);
+    setFormError(null);
+    if (ee || pe || ce) return;
+
+    setBusy(true);
+    try {
+      const { data, error } = await getSupabase().auth.signUp({ email: email.trim(), password });
+      if (error) {
+        setFormError(mapSignUpError(error));
+        return;
+      }
+      // Supabase 為避免洩漏已註冊信箱，對已存在且已驗證的信箱會回傳 identities 為空的假成功
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setFormError({ key: 'auth.emailAlreadyExists', code: null });
+        return;
+      }
+      if (data.session) {
+        toast.success(t('auth.signUpSuccess'));
+      } else {
+        setDone(true);
+        setPassword('');
+        setConfirm('');
+      }
+    } catch (error) {
+      setFormError(mapSignUpError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 id={headingId} className="text-xl font-semibold">
+        {t('auth.signUpTitle')}
+      </h2>
+      <p className="text-sm text-zinc-700 dark:text-zinc-300">{t('auth.signUpDescription')}</p>
+
+      <div
+        role="status"
+        aria-live="polite"
+        className={`empty:hidden rounded p-3 text-sm ${
+          done ? 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200' : 'bg-sky-200 text-blue-900 dark:bg-sky-950 dark:text-blue-200'
+        }`}
+      >
+        {busy ? t('auth.signingUp') : done ? t('auth.signUpDone') : ''}
+      </div>
+      {formError && (
+        <p role="alert" className={ERROR_BOX}>
+          {t(formError.key, formError.code ? { code: formError.code } : undefined)}
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate aria-labelledby={headingId} aria-busy={busy} className="space-y-3">
+        <TextField
+          label={t('auth.email')}
+          hint={t('auth.hint.email')}
+          errorKey={emailError}
+          value={email}
+          onChange={(v) => {
+            setEmail(v);
+            onEmailChange(v);
+          }}
+          name="email"
+          autoComplete="email"
+          placeholder="name@example.com"
+        />
+        <PasswordField
+          label={t('auth.password')}
+          hint={t('auth.hint.signUpPassword')}
+          errorKey={passwordError}
+          value={password}
+          onChange={setPassword}
+          name="new-password"
+          autoComplete="new-password"
+        />
+        <PasswordField
+          label={t('auth.confirmPassword')}
+          hint={t('auth.hint.confirmPassword')}
+          errorKey={confirmError}
+          value={confirm}
+          onChange={setConfirm}
+          name="confirm-password"
+          autoComplete="new-password"
+        />
+        <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
+          {t('auth.submitSignUp')}
+        </button>
+      </form>
+    </div>
   );
 }

@@ -129,13 +129,21 @@ https://docs.google.com/document/d/1EeXTxz0sD8CIWdXSQGXvpSFZSm3h2BTN-6Tt_28ZOdw/
 
 ### 🔹 正式打包啟動指令
 ```bash
-docker compose --profile "*" up --build -d
+docker compose --env-file .env --env-file ai-platform/.env --profile "*" up --build -d
 ```
 *Docker 將會完全忽略開發補丁檔，自動採用安全且經過獨立打包的生產環境模式，並由中央 Nginx 閘道器進行 `80`/`443` 網域分流處理。*
+
+AI 平台前端的 Supabase URL 與 anon key 會在 Next.js 建置時嵌入前端，因此上述指令會從 `ai-platform/.env` 讀取建置變數；`env_file` 僅供容器執行時使用，不能取代建置參數。缺少任一變數時，映像建置會明確失敗，而不會產生無法登入的網站。正式環境的後端代理使用 Docker 內部服務名稱；直接在主機執行前端開發伺服器時則預設連線 `http://localhost:8000`。
 
 ---
 
 ## 🛠️ 5. 常見問題與疑難排解 (Troubleshooting)
+
+### 忘記密碼（重設連結）設定
+
+忘記密碼會寄出「重設密碼連結」，點擊後直接登入並提示盡快修改密碼。連結會導回使用者目前的網址（本機 http://localhost:3001/、正式網域等），因此請到 Supabase 後台 **Authentication → URL Configuration → Redirect URLs** 加入所有會使用的網址（例如 http://localhost:3001/**、https://ai-platform.shenyang.win/**），否則連結會回到 Site URL。Supabase 內建 SMTP 有寄送上限且僅能寄給團隊成員，正式環境建議設定自訂 SMTP。
+
+開發環境（docker-compose.dev.yml）的 AI 平台前端以 --webpack 搭配 WATCHPACK_POLLING 啟動，確保 Windows / macOS 的掛載目錄也能熱更新；所有開發埠都只綁定 127.0.0.1。範本請見 i-platform/.env.example。
 
 ### Q1：執行 `docker compose up -d` 後沒有任何容器啟動？
 * **原因**：所有服務均設定了 `profiles` 隔離。若未帶入 `--profile` 參數，Docker 預設不會啟動任何帶有 profile 宣告的服務。
@@ -144,7 +152,7 @@ docker compose --profile "*" up --build -d
 ### Q2：為什麼在瀏覽器輸入 `ai-platform.local` 卻顯示無法連線？
 * **原因**：可能是忘記在電腦的 `hosts` 檔案中加入對應設定，或是中央 Nginx 閘道器容器還沒啟動。
 * **解法**：
-  1. 確認電腦的 `/etc/hosts` 檔案已正確寫入 `127.0.0.1 portfolio.local ai-platform.local ai-dashboard.local`。
+  1. 確認 hosts 檔案已寫入 `127.0.0.1 portfolio.local ai-platform.local ai-dashboard.local`。Windows 檔案位置為 `C:\Windows\System32\drivers\etc\hosts`（需以系統管理員權限編輯）；Linux/macOS 使用 `/etc/hosts`。
   2. 確認總 `docker-compose.yml` 中的 Nginx 網關服務已開啟並佔用 Port 80。
 
 ### Q3：Next.js 打包建置時出現 `"/app/.next/standalone": not found`？
@@ -179,3 +187,25 @@ docker compose --profile "*" up --build -d
   volumes:
     - ai-dashboard-db-data:/data
   ```
+### Q7：Ollama 啟動出現 `exec /entrypoint.sh: no such file or directory`？
+原因是 Windows 檢出時 `entrypoint.sh` 被轉成 CRLF 換行。現已以 `.gitattributes` 強制 `*.sh`、`Dockerfile*`、`*.yml`、`nginx.conf` 使用 LF，且 `docker/ollama/Dockerfile` 會再去除 `\r`。若仍遇到，執行 `git add --renormalize .` 後重新 `docker compose build --no-cache ollama`。
+
+### Q8：ai-platform 登入後出現「登入已過期或尚未登入」？
+前端使用的 Supabase 專案必須與後端一致。`ai-platform/.env` 需設定遠端專案的 `DATABASE_URL`（Docker 內請用 Supabase **Session pooler** 連線字串，直連主機僅支援 IPv6）、`SUPABASE_JWKS_URL`（`https://<ref>.supabase.co/auth/v1/.well-known/jwks.json`）與 `SUPABASE_JWT_ISSUER`（`https://<ref>.supabase.co/auth/v1`）。密碼中的特殊字元需 URL 編碼。
+
+### Q9：忘記密碼流程與信件範本設定
+Supabase 只儲存密碼雜湊，**無法也不應**在信中寄出原密碼。ai-platform 改用「驗證碼」流程：輸入信箱 → 收到信中的一次性驗證碼 → 輸入驗證碼 → 設定新密碼。驗證後網站仍維持鎖定（導覽列停用），直到新密碼設定完成並重新登入。
+
+必須修改信件範本：Supabase Dashboard → Authentication → Email Templates → **Reset Password**，內容改為顯示 `{{ .Token }}`，例如：
+```html
+<h2>重設密碼 / Reset password</h2>
+<p>您的驗證碼 / Your code：<strong>{{ .Token }}</strong></p>
+<p>驗證碼短時間內有效；若非本人操作請忽略此信。</p>
+```
+驗證碼位數可於 Authentication → Providers → Email 的 OTP Length 調整（本站接受 6–8 位數）。若仍使用舊的連結範本，連結流程同樣會先顯示「設定新密碼」畫面，不會直接登入。連結流程需將網站來源加入 URL Configuration 的 Redirect URLs。
+
+### 背景圖片授權
+`ai-platform/frontend/public/bg-light.jpg`、`bg-dark.jpg` 為 Unsplash 照片，依 Unsplash License 可免費商用，無需署名。
+
+### 啟動順序與 Ollama
+`ollama`（healthcheck 通過後）→ `ai-platform-backend` → `ai-platform-frontend`；`ai-dashboard-backend` → `ai-dashboard-frontend`。首次啟動 Ollama 會在背景下載 `OLLAMA_CHAT_MODEL`（預設 `qwen2.5:3b`），需要一些時間。主機連接埠可用 `OLLAMA_HOST_PORT` 調整。Windows/Mac 開發模式已啟用 `WATCHPACK_POLLING` 讓熱重載生效。

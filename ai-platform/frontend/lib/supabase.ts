@@ -18,6 +18,10 @@ function cleanEnv(value: string | undefined, name: string): string {
 // 整個應用共用同一個 Supabase 實例，避免重複監聽登入狀態
 let client: SupabaseClient | null = null;
 
+export function isSupabaseConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim());
+}
+
 // 取得單例客戶端；只能在事件處理或 useEffect 中呼叫，避免建置時就讀取環境變數
 export function getSupabase(): SupabaseClient {
   if (!client) {
