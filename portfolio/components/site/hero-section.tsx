@@ -5,6 +5,7 @@ import { Phone, Mail, ArrowDown, MapPin, Rocket, LayoutDashboard, ExternalLink }
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DashboardIcon } from '@/components/site/DashboardIcon';
 
 // 【關鍵技術 10】：Framer Motion 聲明式微互動動畫 — 使用 motion 元件宣告式定義進場動畫、懸停效果與滾動觸發動畫，實現流暢的微互動體驗
 
@@ -17,7 +18,7 @@ const LIVE_SITES = [
   },
   {
     name: 'AI Dashboard',
-    icon: LayoutDashboard,
+    icon: DashboardIcon,
     description: 'PredictFlow AI：SaaS 流失率、MRR 預測與 ModelOps 成本監控的資料儀表板。',
     href: 'https://ai-dashboard.shenyang.win',
   },
