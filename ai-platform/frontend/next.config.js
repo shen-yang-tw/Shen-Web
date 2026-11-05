@@ -4,7 +4,7 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
-  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  allowedDevOrigins: ['127.0.0.1', 'localhost', '*.local', 'shenyang.win', '*.shenyang.win'],
   turbopack: { root: __dirname },
   
   // 🚀 新增這段：將 /api 請求自動代理至後端容器，解決 401 與 CORS 限制

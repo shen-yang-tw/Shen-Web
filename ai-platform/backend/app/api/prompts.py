@@ -42,6 +42,8 @@ async def list_prompts(user_id: str = CurrentUserId) -> list[dict]:
 async def create_prompt(payload: PromptIn, user_id: str = CurrentUserId) -> dict:
     # 新增一筆提示詞，標題與內容的長度已由 PromptIn 限制
     row = await asyncio.to_thread(prompt_repo.create_prompt, user_id, payload.title, payload.body)
+    if row is None:
+        raise HTTPException(status_code=409, detail="提示詞庫最多儲存十筆")
     return {**row, "id": str(row["id"])}
 
 

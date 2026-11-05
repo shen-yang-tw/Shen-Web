@@ -38,26 +38,30 @@ def list_prompts(user_id: str) -> list[dict]:
             from public.prompts
             where user_id = %s
             order by updated_at desc
-            limit 200
+            limit 10
             """,
             (user_id,),
         ).fetchall()
     return [dict(row) for row in rows]
 
 
-def create_prompt(user_id: str, title: str, body: str) -> dict:
-    # 新增一筆 Prompt，並回傳新建立的資料
+MAX_PROMPTS = 10
+
+
+def create_prompt(user_id: str, title: str, body: str) -> dict | None:
+    # 新增一筆 Prompt；已達 MAX_PROMPTS 上限時不寫入並回傳 None（單一 SQL 內判斷，避免並發超過上限）
     with db_connection() as conn:
         row = conn.execute(
             """
             insert into public.prompts (user_id, title, body)
-            values (%s, %s, %s)
+            select %s, %s, %s
+            where (select count(*) from public.prompts where user_id = %s) < %s
             returning id, title, body, created_at, updated_at
             """,
-            (user_id, title, body),
+            (user_id, title, body, user_id, MAX_PROMPTS),
         ).fetchone()
         conn.commit()
-    return dict(row)
+    return dict(row) if row else None
 
 
 def update_prompt(user_id: str, prompt_id: str, title: str, body: str) -> dict | None:

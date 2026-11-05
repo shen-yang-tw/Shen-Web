@@ -133,6 +133,30 @@ docker compose --env-file .env --env-file ai-platform/.env --profile "*" up --bu
 ```
 *Docker 將會完全忽略開發補丁檔，自動採用安全且經過獨立打包的生產環境模式，並由中央 Nginx 閘道器進行 `80`/`443` 網域分流處理。*
 
+以上指令在 Windows (PowerShell)、Ubuntu、macOS 的終端機皆可直接執行（Windows 需先啟動 Docker Desktop）。已實測 `docker compose ... --profile "*" build` 可成功建置所有映像。
+
+### 🔹 其他常用正式指令
+```bash
+# 只打包、不啟動（驗證建置是否成功）
+docker compose --env-file .env --env-file ai-platform/.env --profile "*" build
+
+# 更新程式碼後重新打包並重啟
+docker compose --env-file .env --env-file ai-platform/.env --profile "*" up --build -d
+
+# 確認所有容器皆為 healthy
+docker compose --profile "*" ps
+
+# 查看閘道器 / 服務日誌
+docker compose --profile "*" logs -f gateway
+
+# 停止並移除容器
+docker compose --profile "*" down --remove-orphans
+```
+> 從開發模式切換到正式模式時，請先執行 `docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile "*" down --remove-orphans`，再執行上方正式指令，避免沿用開發用容器。
+
+### 🔹 提示詞庫限制
+AI 平台「提示詞庫與設定」最多儲存 10 筆（前後端皆限制）；超過時後端回傳 409，畫面提示先刪除再新增。
+
 AI 平台前端的 Supabase URL 與 anon key 會在 Next.js 建置時嵌入前端，因此上述指令會從 `ai-platform/.env` 讀取建置變數；`env_file` 僅供容器執行時使用，不能取代建置參數。缺少任一變數時，映像建置會明確失敗，而不會產生無法登入的網站。正式環境的後端代理使用 Docker 內部服務名稱；直接在主機執行前端開發伺服器時則預設連線 `http://localhost:8000`。
 
 ---

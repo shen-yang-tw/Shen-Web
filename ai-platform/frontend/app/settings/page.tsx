@@ -3,11 +3,12 @@
 
 // 提示詞與設定頁：伺服器同步的 Prompt 草稿、Prompt 提示詞庫的增刪改、語言與主題切換、環境與用量狀態。
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
 import { toast } from 'sonner';
 import { useApp } from '@/components/Providers';
 import { Skeleton } from '@/components/Skeleton';
-import { apiErrorKey, apiFetch } from '@/lib/api';
+import { ApiError, apiErrorKey, apiFetch } from '@/lib/api';
 import { getSupabase } from '@/lib/supabase';
 import { writeLocal } from '@/lib/prefs';
 
@@ -15,6 +16,8 @@ import { writeLocal } from '@/lib/prefs';
 const DRAFT_SAVE_DELAY_MS = 1000;
 // 首頁對話使用的草稿快取 key，與首頁 app/page.tsx 相同
 const CHAT_DRAFT_KEY = 'draft:chat';
+// 提示詞庫最多儲存筆數（後端同樣限制）
+const MAX_PROMPTS = 10;
 
 // 後端 /api/prompts 回傳的提示詞
 type Prompt = { id: string; title: string; body: string; created_at: string; updated_at: string };
@@ -31,6 +34,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
 
 export default function SettingsPage() {
   const { t, locale, theme, setLocale, setTheme } = useApp();
+  const router = useRouter();
   // 表單欄位的 id，用來做 label 關聯
   const draftId = useId();
   const titleId = useId();
@@ -142,16 +146,23 @@ export default function SettingsPage() {
     if (!title || !body || saving) return;
     setSaving(true);
     try {
+      // 以後端回傳的資料立即更新列表，不必等重新讀取
       if (editingId) {
-        await apiFetch(`/api/prompts/${editingId}`, { method: 'PUT', body: { title, body } });
+        const updated = await apiFetch<Prompt>(`/api/prompts/${editingId}`, { method: 'PUT', body: { title, body } });
+        setPrompts((list) => [updated, ...(list ?? []).filter((p) => p.id !== updated.id)]);
       } else {
-        await apiFetch('/api/prompts', { method: 'POST', body: { title, body } });
+        const created = await apiFetch<Prompt>('/api/prompts', { method: 'POST', body: { title, body } });
+        setPrompts((list) => [created, ...(list ?? [])].slice(0, MAX_PROMPTS));
       }
       toast.success(t('settings.saved'));
       resetForm();
-      await loadPrompts();
     } catch (err) {
-      toast.error(t(apiErrorKey(err)), { id: apiErrorKey(err) });
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error(t('settings.limitReached'), { id: 'prompt-limit' });
+        await loadPrompts();
+      } else {
+        toast.error(t(apiErrorKey(err)), { id: apiErrorKey(err) });
+      }
     } finally {
       setSaving(false);
     }
@@ -176,10 +187,18 @@ export default function SettingsPage() {
   // 把提示詞內容套用到首頁對話的草稿快取，之後到首頁就能直接使用
   function useInChat(prompt: Prompt) {
     writeLocal(CHAT_DRAFT_KEY, prompt.body);
-    toast.success(t('settings.useDone'));
+    // 提示訊息結束（自動消失或手動關閉）後才切換到首頁；只導頁一次
+    let navigated = false;
+    const goHome = () => {
+      if (navigated) return;
+      navigated = true;
+      router.push('/');
+    };
+    toast.success(t('settings.useDone'), { duration: 1500, onAutoClose: goHome, onDismiss: goHome });
   }
 
   // 草稿狀態轉成文字
+  const libraryFull = !editingId && (prompts?.length ?? 0) >= MAX_PROMPTS;
   const draftStateText =
     draftState === 'saving' ? t('common.saving') : draftState === 'saved' ? t('common.saved') : draftState === 'failed' ? t('common.saveFailed') : '';
 
@@ -297,6 +316,7 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSubmit} aria-busy={saving} className="space-y-3 rounded border border-zinc-200 p-4 dark:border-zinc-800">
           <h3 className="text-base font-medium">{editingId ? t('settings.formEdit') : t('settings.formCreate')}</h3>
+          {libraryFull && <p role="status" className="text-xs text-red-700 dark:text-red-300">{t('settings.limitReached')}</p>}
           <div className="space-y-1">
             <label htmlFor={titleId} className="block text-sm font-medium">
               {t('settings.titleLabel')}
@@ -328,7 +348,7 @@ export default function SettingsPage() {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || libraryFull}
               className="btn-primary rounded bg-sky-900 px-4 py-2 text-white hover:bg-sky-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:bg-sky-200 dark:text-zinc-900"
             >
               {saving ? t('common.saving') : editingId ? t('common.save') : t('common.create')}
@@ -345,22 +365,24 @@ export default function SettingsPage() {
           </div>
         </form>
 
+        <p className="text-xs text-zinc-600 dark:text-zinc-400">{t('settings.limitNote')}</p>
         {prompts === null ? (
           <Skeleton lines={3} />
         ) : prompts.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">{t('settings.libraryEmpty')}</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {prompts.map((prompt) => (
-              <li key={prompt.id} className="space-y-2 rounded border border-zinc-200 p-4 dark:border-zinc-800">
-                <h3 className="font-medium break-words">{prompt.title}</h3>
-                <p className="whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-300">{prompt.body}</p>
-                <div className="flex flex-wrap gap-2">
+              <li key={prompt.id} className="flex items-center gap-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
+                {/* 標題、內容、按鈕同一行；內容手機最多兩行、桌機一行，超出隱藏 */}
+                <h3 className="w-24 shrink-0 truncate font-medium sm:w-40" title={prompt.title}>{prompt.title}</h3>
+                <p className="min-w-0 flex-1 break-words text-sm text-zinc-700 line-clamp-2 sm:line-clamp-1 dark:text-zinc-300" title={prompt.body}>{prompt.body}</p>
+                <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:gap-2">
                   <button
                     type="button"
                     onClick={() => useInChat(prompt)}
                     aria-label={`${t('settings.use')}：${prompt.title}`}
-                    className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
+                    className="rounded border border-zinc-300 px-3 py-1 text-sm whitespace-nowrap hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
                   >
                     {t('settings.use')}
                   </button>
@@ -368,7 +390,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => startEdit(prompt)}
                     aria-label={`${t('common.edit')}：${prompt.title}`}
-                    className="rounded border border-zinc-300 px-3 py-1 text-sm hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
+                    className="rounded border border-zinc-300 px-3 py-1 text-sm whitespace-nowrap hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-zinc-700 dark:hover:bg-sky-800"
                   >
                     {t('common.edit')}
                   </button>
@@ -376,7 +398,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => setDeleteTarget(prompt)}
                     aria-label={`${t('common.delete')}：${prompt.title}`}
-                    className="rounded border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+                    className="rounded border border-red-300 px-3 py-1 text-sm whitespace-nowrap text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
                   >
                     {t('common.delete')}
                   </button>
