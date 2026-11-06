@@ -33,7 +33,7 @@ type StatusData = {
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
 
 export default function SettingsPage() {
-  const { t, locale, theme, setLocale, setTheme } = useApp();
+  const { t } = useApp();
   const router = useRouter();
   // 表單欄位的 id，用來做 label 關聯
   const draftId = useId();
@@ -214,69 +214,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-10">
-      {/* 語言與外觀設定：aria-pressed 表示目前選中的選項 */}
+      {/* 頁面標題（語言與外觀切換已在上方導覽列） */}
       <section aria-labelledby="prefs-title" className="space-y-4">
         <h2 id="prefs-title" className="text-xl font-semibold">
           {t('settings.title')}
         </h2>
-
-        <div className="flex flex-wrap items-center gap-6">
-          <div className="space-y-2">
-            <span className="block text-sm font-medium" id="lang-group-label">
-              {t('settings.language')}
-            </span>
-            <div role="group" aria-labelledby="lang-group-label" className="flex gap-2">
-              <button
-                type="button"
-                aria-pressed={locale === 'zh-TW'}
-                onClick={() => setLocale('zh-TW')}
-                className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  locale === 'zh-TW' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
-                }`}
-              >
-                繁體中文
-              </button>
-              <button
-                type="button"
-                aria-pressed={locale === 'en'}
-                onClick={() => setLocale('en')}
-                className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  locale === 'en' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
-                }`}
-              >
-                English
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <span className="block text-sm font-medium" id="theme-group-label">
-              {t('settings.theme')}
-            </span>
-            <div role="group" aria-labelledby="theme-group-label" className="flex gap-2">
-              <button
-                type="button"
-                aria-pressed={theme === 'light'}
-                onClick={() => setTheme('light')}
-                className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  theme === 'light' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
-                }`}
-              >
-                {t('common.themeLight')}
-              </button>
-              <button
-                type="button"
-                aria-pressed={theme === 'dark'}
-                onClick={() => setTheme('dark')}
-                className={`rounded border px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                  theme === 'dark' ? 'border-zinc-900 bg-sky-900 dark:border-zinc-100 dark:bg-sky-200 dark:text-white' : 'border-zinc-300 dark:border-zinc-700'
-                }`}
-              >
-                {t('common.themeDark')}
-              </button>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* Prompt 草稿：伺服器自動儲存 */}
@@ -373,11 +315,11 @@ export default function SettingsPage() {
         ) : (
           <ul className="space-y-2">
             {prompts.map((prompt) => (
-              <li key={prompt.id} className="flex items-center gap-3 rounded border border-zinc-200 p-3 dark:border-zinc-800">
-                {/* 標題、內容、按鈕同一行；內容手機最多兩行、桌機一行，超出隱藏 */}
-                <h3 className="w-24 shrink-0 truncate font-medium sm:w-40" title={prompt.title}>{prompt.title}</h3>
-                <p className="min-w-0 flex-1 break-words text-sm text-zinc-700 line-clamp-2 sm:line-clamp-1 dark:text-zinc-300" title={prompt.body}>{prompt.body}</p>
-                <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:gap-2">
+              <li key={prompt.id} className="flex flex-col gap-2 rounded border border-zinc-200 p-3 sm:flex-row sm:items-center sm:gap-3 dark:border-zinc-800">
+                {/* 手機版標題、內容、按鈕各佔一行；桌機同一行，內容超出隱藏 */}
+                <h3 className="truncate font-medium sm:w-40 sm:shrink-0" title={prompt.title}>{prompt.title}</h3>
+                <p className="min-w-0 flex-1 break-words text-sm text-zinc-700 line-clamp-3 sm:line-clamp-1 dark:text-zinc-300" title={prompt.body}>{prompt.body}</p>
+                <div className="flex shrink-0 flex-row gap-2">
                   <button
                     type="button"
                     onClick={() => useInChat(prompt)}

@@ -128,7 +128,7 @@ const zhTW = {
   'chat.historyEmpty': '還沒有歷史對話',
   'chat.untitled': '未命名對話',
   'chat.inputLabel': '輸入你的問題',
-  'chat.inputInstruction': '請在以下入對話文字',
+  'chat.inputInstruction': '請在以下輸入對話文字',
   'chat.placeholder': '輸入問題，Enter 送出，Shift + Enter 換行',
   'chat.hint': '草稿會自動備份在這台瀏覽器中。',
   'chat.send': '送出',

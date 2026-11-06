@@ -3,14 +3,20 @@
 
 // 首頁：核心對話介面。包含 AI 串流回答、歷史對話列表、草稿自動備份與 RAG 開關。
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { useApp } from '@/components/Providers';
-import MarkdownContent from '@/components/MarkdownContent';
 import { Skeleton } from '@/components/Skeleton';
 import { ThinkingHint } from '@/components/ThinkingHint';
 import { apiErrorKey, apiFetch, streamSse } from '@/lib/api';
 import { DEFAULT_TUNING, readLocal, readTuning, writeLocal, type TuningParams } from '@/lib/prefs';
 import type { MessageKey } from '@/lib/i18n';
+
+// Markdown 解析器（react-markdown + remark-gfm）體積大，改為延遲載入：
+// 首頁初次載入不必下載解析，有訊息要顯示時才載入；載入期間先以純文字呈現。
+const MarkdownContent = dynamic(() => import('@/components/MarkdownContent'), {
+  loading: () => null,
+});
 
 // 草稿在 localStorage 中的 key
 const DRAFT_KEY = 'draft:chat';
@@ -193,9 +199,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-[260px_1fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[260px_minmax(0,1fr)]">
       {/* 歷史對話側邊欄 */}
-      <aside aria-labelledby="history-title" className="space-y-3">
+      <aside aria-labelledby="history-title" className="min-w-0 space-y-3">
         <div className="flex items-center justify-between">
           <h2 id="history-title" className="text-base font-semibold">
             {t('chat.history')}
@@ -238,7 +244,7 @@ export default function ChatPage() {
       </aside>
 
       {/* 對話主區域 */}
-      <section aria-labelledby="chat-title" className="flex min-h-[70vh] flex-col gap-4">
+      <section aria-labelledby="chat-title" className="flex min-h-[70vh] min-w-0 flex-col gap-4">
         <h2 id="chat-title" className="text-xl font-semibold">
           {t('chat.title')}
         </h2>
