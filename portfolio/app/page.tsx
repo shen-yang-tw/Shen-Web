@@ -32,7 +32,7 @@ const highlights = [
   },
   {
     title: "現代化 Web 開發",
-    description: "擁有將近十年的精準切版底子，精通 Tailwind v4 、shadcn/ui、Framer Motion 與 RWD 響應式佈局，並能嚴格確保網站百分之百通過國家級無障礙規範檢測。",
+    description: "擁有將近十五年的精準切版底子，精通 Tailwind v4 、shadcn/ui、Framer Motion 與 RWD 響應式佈局，並能嚴格確保網站百分之百通過國家級無障礙規範檢測。",
     icon: Globe,
   }
 ];
