@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Gemini 官方 REST 端點的基礎網址
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     # 對話使用的 Gemini 模型名稱
-    gemini_chat_model: str = "gemini-3.6-flash"
+    gemini_chat_model: str = "gemini-3.5-flash-lite"
     # Embedding 使用的 Gemini 模型名稱
     gemini_embedding_model: str = "gemini-embedding-001"
     # Embedding 輸出維度，必須與資料表 vector(1536) 一致
