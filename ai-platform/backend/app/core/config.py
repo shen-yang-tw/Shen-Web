@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # 登入狀態撤銷檢查的快取秒數：快取期間不重複查資料庫，登出後最遲在這段時間後生效
     session_check_cache_seconds: int = 30
 
+    # ---------- Google 登入 ----------
+    # Google OAuth 用戶端 ID（公開資訊）。後端驗證 ID Token 時，token 的 aud 必須等於它；留空代表停用 Google 登入
+    google_client_id: str = ""
+    # 後端自行簽發登入 JWT 用的 HS256 密鑰（機密，至少 32 字元）；留空代表停用 Google 登入
+    app_jwt_secret: str = ""
+    # 後端簽發的登入 JWT 有效分鐘數（預設 12 小時）
+    app_jwt_expire_minutes: int = 720
+
     # ---------- Gemini ----------
     # Gemini API 金鑰，屬於機密，只能放在環境變數
     gemini_api_key: str = ""

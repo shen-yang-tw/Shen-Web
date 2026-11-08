@@ -9,6 +9,7 @@ import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { useApp } from '@/components/Providers';
 import { Skeleton } from '@/components/Skeleton';
 import { clearRecoveryPending, setRecoveryPending, useRecoveryPending } from '@/lib/recovery';
+import { useAppSession } from '@/lib/appSession';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -16,6 +17,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [configurationError, setConfigurationError] = useState(false);
   const recoveryPending = useRecoveryPending();
+  const appSession = useAppSession();
   const { t } = useApp();
   const [changeOpen, setChangeOpen] = useState(false);
 
@@ -45,8 +47,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (session === undefined) {
     return <Skeleton lines={4} />;
   }
-  // 未登入時顯示登入面板，不渲染任何需要權限的頁面內容
-  if (session === null) {
+  // 兩種登入（Supabase 或 Google 系統 JWT）都沒有時顯示登入面板，不渲染任何需要權限的頁面內容
+  if (session === null && !appSession) {
     return <AuthPanel />;
   }
   // 已登入才渲染實際頁面

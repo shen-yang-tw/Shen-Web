@@ -10,6 +10,7 @@ import { useApp } from '@/components/Providers';
 import { Skeleton } from '@/components/Skeleton';
 import { ApiError, apiErrorKey, apiFetch } from '@/lib/api';
 import { getSupabase } from '@/lib/supabase';
+import { clearAppSession, useAppSession } from '@/lib/appSession';
 import { writeLocal } from '@/lib/prefs';
 
 // 草稿在伺服器上的自動儲存延遲（毫秒）
@@ -34,6 +35,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
 
 export default function SettingsPage() {
   const { t } = useApp();
+  const appSession = useAppSession();
   const router = useRouter();
   // 表單欄位的 id，用來做 label 關聯
   const draftId = useId();
@@ -204,6 +206,8 @@ export default function SettingsPage() {
 
   // 登出所有裝置：scope 為 global，會撤銷此帳號所有 refresh token，包含目前這台裝置
   async function signOutAllDevices() {
+    // Google 登入的系統 JWT 只存在本機，一併清除
+    clearAppSession();
     const { error } = await getSupabase().auth.signOut({ scope: 'global' });
     if (error) {
       toast.error(t('err.generic'));
@@ -420,7 +424,7 @@ export default function SettingsPage() {
       </section>
 
       {/* 帳號與登出：全部裝置登出是獨立功能，因為會連同目前這台裝置一起登出 */}
-      <section aria-labelledby="account-title" className="space-y-3">
+      {!appSession && <section aria-labelledby="account-title" className="space-y-3">
         <h2 id="account-title" className="text-lg font-semibold">
           {t('settings.account')}
         </h2>
@@ -435,7 +439,7 @@ export default function SettingsPage() {
         >
           {t('settings.signOutAll')}
         </button>
-      </section>
+      </section>}
     </div>
   );
 }

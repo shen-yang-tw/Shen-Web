@@ -10,6 +10,7 @@ import { useApp } from '@/components/Providers';
 import { AuthGate } from '@/components/AuthGate';
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { clearAppSession, useAppSession } from '@/lib/appSession';
 import type { MessageKey } from '@/lib/i18n';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { RxRocket } from "react-icons/rx";
@@ -28,11 +29,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t, locale, theme, setLocale, setTheme } = useApp();
   // 取得目前路徑，用來標示導覽列中的目前頁面
   const pathname = usePathname();
-  // 是否已登入，決定要不要顯示登出按鈕
+  // 是否已登入（Supabase session），決定要不要顯示登出按鈕
   const [hasSession, setHasSession] = useState(false);
-  const signedIn = hasSession;
+  // Google 登入後的系統 JWT 登入狀態
+  const appSession = useAppSession();
+  const signedIn = hasSession || Boolean(appSession);
   // 目前登入的電子郵件，顯示在頂部讓使用者確認自己正在使用哪個帳號
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [supabaseEmail, setSupabaseEmail] = useState<string | null>(null);
+  const userEmail = hasSession ? supabaseEmail : (appSession?.email ?? null);
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   const [changeOpen, setChangeOpen] = useState(false);
 
@@ -44,7 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     // 回呼參數要明確標註型別：Supabase 這個方法有多載，TypeScript 無法自動推斷參數型別
     const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setHasSession(Boolean(session));
-      setUserEmail(session?.user.email ?? null);
+      setSupabaseEmail(session?.user.email ?? null);
     });
     // 元件卸載時取消訂閱，避免記憶體洩漏
     return () => data.subscription.unsubscribe();
@@ -52,6 +56,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // 登出：只登出目前這台瀏覽器（scope: 'local'），其他裝置的登入保留；全部裝置登出請到設定頁操作
   async function handleSignOut() {
+    // 一併清除 Google 登入的系統 JWT
+    clearAppSession();
     const { error } = await getSupabase().auth.signOut({ scope: 'local' });
     if (error) {
       toast.error(t('err.generic'));
@@ -108,7 +114,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {t('common.signedInAs', { email: userEmail })}
                 </span>
               )}
-              {signedIn && (
+              {/* Google 登入的帳號沒有密碼，所以不顯示修改密碼按鈕 */}
+              {hasSession && (
                 <button type="button" onClick={() => setChangeOpen(true)} className="shrink-0 whitespace-nowrap rounded border border-zinc-500 px-2 py-1 text-xs hover:bg-sky-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-zinc-400 dark:hover:bg-sky-800 dark:focus-visible:outline-blue-300">
                   {t('auth.change.open')}
                 </button>

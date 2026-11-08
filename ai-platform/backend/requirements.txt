@@ -12,6 +12,9 @@ pydantic-settings==2.16.1
 # JWT 驗證；cryptography 提供 ES256 與 RS256 的演算法支援
 PyJWT==2.15.1
 cryptography==50.0.2
+# 驗證 Google ID Token（google-auth 透過 requests 下載 Google 公鑰）
+google-auth==2.62.1
+requests==2.34.2
 # Postgres 驅動與連線池
 psycopg[binary]==3.3.6
 psycopg-pool==3.3.3

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # 設定、資料庫連線池的關閉函式
-from app.api import chat, knowledge, meta, prompts, tuning
+from app.api import auth, chat, knowledge, meta, prompts, tuning
 from app.core.config import settings
 from app.core.db import close_pool
 
@@ -73,6 +73,7 @@ async def unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
 
 # 依功能註冊各組路由
 app.include_router(meta.router)
+app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(knowledge.router)
 app.include_router(tuning.router)

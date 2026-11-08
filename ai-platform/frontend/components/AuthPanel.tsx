@@ -8,6 +8,7 @@ import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { clearRecoveryPending } from '@/lib/recovery';
 import { PasswordField, TextField } from '@/components/AuthFields';
 import { PRIMARY_BUTTON } from '@/components/Modal';
+import { QuickLogin } from '@/components/QuickLogin';
 import { useApp } from '@/components/Providers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -51,6 +52,7 @@ export function AuthPanel({ initialError }: { initialError?: AuthErrorKey }) {
           {t(initialError)}
         </p>
       )}
+      <QuickLogin />
       <Tabs value={mode} onValueChange={(next) => setMode(next as AuthMode)} className="gap-4">
         <TabsList aria-label={t('auth.modeGroup')}>
           <TabsTrigger value="signIn">{t('auth.signIn')}</TabsTrigger>

@@ -18,6 +18,9 @@ from app.core.db import db_connection
 import psycopg
 # time.monotonic 是單調時鐘，快取到期判斷不受系統時間調整影響
 import time
+# 系統專屬 JWT（Google 登入後由後端簽發）的驗證與使用者狀態查詢
+from app.core.app_token import verify_app_token
+from app.repositories.user_repo import user_is_active
 # uuid 用來檢查 session_id 格式，避免無效字串送進資料庫
 import uuid
 
@@ -68,12 +71,42 @@ def _is_session_active(session_id: str, user_id: str) -> bool:
     return True
 
 
+def _authenticate_app_token(token: str) -> str:
+    # 驗證後端自己簽發的 JWT：簽章、期限、發行者、受眾都要對
+    try:
+        user_id = verify_app_token(token)
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登入憑證無效或已過期",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # 再確認使用者還存在且沒被停權；沿用 session 快取，避免每個請求都查資料庫
+    cache_key = f"app:{user_id}"
+    cached = _session_cache.get(cache_key)
+    if cached is not None and cached[1] > time.monotonic():
+        return user_id
+    try:
+        active = user_is_active(user_id)
+    except psycopg.Error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="驗證服務暫時無法使用，請稍後再試")
+    if not active:
+        _session_cache.pop(cache_key, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登入已失效，請重新登入",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    _session_cache[cache_key] = (user_id, time.monotonic() + settings.session_check_cache_seconds)
+    return user_id
+
+
 def get_current_user_id(
     # 從請求標頭取得 Bearer token，沒有就是 None
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> str:
-    # 若沒有提供 token，或後端尚未設定 JWKS，一律拒絕
-    if credentials is None or _jwks_client is None:
+    # 系統 JWT 不需要 Supabase JWKS；仍必須提供憑證。
+    if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="未登入或驗證尚未設定",
@@ -82,6 +115,22 @@ def get_current_user_id(
 
     # 取出 token 字串本身
     token = credentials.credentials
+
+    # 系統專屬 JWT（HS256）走自己的驗證；Supabase 的 JWT 是 ES256/RS256，不會進到這裡
+    try:
+        is_app_token = jwt.get_unverified_header(token).get("alg") == "HS256"
+    except jwt.PyJWTError:
+        is_app_token = False
+    if is_app_token:
+        return _authenticate_app_token(token)
+
+    if _jwks_client is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未登入或驗證尚未設定",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         # 依 token 標頭的 kid 找到對應公鑰
         signing_key = _jwks_client.get_signing_key_from_jwt(token)

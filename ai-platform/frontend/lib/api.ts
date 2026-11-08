@@ -3,6 +3,8 @@
 
 // 取得 Supabase 客戶端以讀取目前登入者的 token
 import { getSupabase } from '@/lib/supabase';
+// Google 登入後的系統 JWT
+import { clearAppSession, getAppSession } from '@/lib/appSession';
 // 錯誤訊息的 key 型別，供 apiErrorKey 回傳；messages 與 Locale 用來在自動登出時顯示提示
 import { messages, type Locale, type MessageKey } from '@/lib/i18n';
 // 讀取使用者偏好的語言，讓非 React 的程式碼也能顯示對應語言的提示
@@ -29,7 +31,8 @@ export class ApiError extends Error {
 // 取得目前登入者的 access token；沒有登入時丟出 401
 async function getAccessToken(): Promise<string> {
   const { data } = await getSupabase().auth.getSession();
-  const token = data.session?.access_token;
+  // 優先使用 Supabase session；沒有時改用 Google 登入後取得的系統 JWT
+  const token = data.session?.access_token ?? getAppSession()?.token;
   if (!token) {
     throw new ApiError(401, 'unauthenticated');
   }
@@ -40,6 +43,14 @@ async function getAccessToken(): Promise<string> {
 async function handleUnauthorized(status: number): Promise<boolean> {
   if (status !== 401) return false;
   const supabase = getSupabase();
+  const { data: current } = await supabase.auth.getSession();
+  // 沒有 Supabase session 代表使用的是系統 JWT（Google 登入）：它無法刷新，直接清除並回到登入頁
+  if (!current.session && getAppSession()) {
+    clearAppSession();
+    const locale: Locale = readLocal('locale') === 'en' ? 'en' : 'zh-TW';
+    toast.error(messages[locale]['auth.sessionEnded'], { id: 'auth.sessionEnded' });
+    return true;
+  }
   const { data, error } = await supabase.auth.refreshSession();
   if (error || !data.session) {
     await supabase.auth.signOut({ scope: 'local' });
