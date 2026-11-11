@@ -156,6 +156,22 @@ export function useChurnData() {
           typeof payload === 'object' && payload !== null && 'records' in payload ? payload.records : undefined
         )
 
+        if (controller.signal.aborted) return
+        setAllRows(records)
+        setDataSource('api')
+        setLoadError(null)
+        setIsLoading(false)
+        publishDataStatus({
+          dataSource: 'api',
+          rowCount: records.length,
+          loadError: null,
+          aiStatus: 'loading',
+          aiModel: null,
+          aiSummary: null,
+          aiError: null,
+          retry,
+        })
+
         let scoredRows = records
         let prediction: AIPrediction | null = null
         let predictionError: string | null = null
@@ -166,6 +182,8 @@ export function useChurnData() {
           })
           if (!telemetryResponse.ok) throw new Error(`Telemetry failed: ${telemetryResponse.status}`)
           telemetry = TelemetrySchema.parse(await telemetryResponse.json())
+          if (controller.signal.aborted) return
+          setTelemetry(telemetry)
         } catch (error) {
           if (controller.signal.aborted) return
           console.warn('Operations telemetry is unavailable.', error)
