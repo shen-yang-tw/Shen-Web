@@ -13,6 +13,8 @@ docker compose up --build
 
 ## AI 預測 API
 
+前端在資料或 AI 服務正常時不顯示重複的重新預測按鈕；資料連線或 AI 服務失敗時，才會顯示對應的重試按鈕。重試會重新載入資料與預測，不會重新訓練流失模型，也不會套用模型洞察頁的試算門檻。
+
 FastAPI 提供 `POST http://localhost:8000/api/v1/ai/predict`，接收 `customers`（或既有 API 的 `records`）、`mrr_history` 與 `modelops_events`（或 `modelops`）JSON 陣列，回傳流失風險、未來六個月 MRR、模型成本／延遲／失敗率及經 Pydantic 驗證的 JSON。MRR 歷史為空時，服務以客戶月費合計作為平坦基準；沒有 ModelOps 事件時，延遲和失敗率回傳 `null`。
 
 預設模型為 `claude-sonnet-5-5`；舊設定 `claude-3-5-sonnet` 會自動轉換為目前可用的模型 ID。亦支援 `claude-sonnet-5`、`claude-sonnet-4-6`；使用 OpenAI 時設定 `ACTIVE_MODEL=gpt-4o`，並填入所選供應商 API 金鑰。未設定 API 金鑰時，客戶風險評分及確定性指標仍可回傳，`ai_status` 會標示 `not_configured`；模型產生的營運摘要則需要有效的供應商金鑰。若模型供應商回應錯誤、連線失敗或摘要格式無效，預測端點仍會回傳已計算的客戶風險與營收預測，並透過 `ai_status=provider_error` 和 `ai_error` 明確回報模型呼叫問題，而不會使整個 API 變成 502。流失分數是未校準的規則估計，回應會明確標註 `churn_method`。前端跨頁面共用預測結果，避免每次切換頁面都重複呼叫模型。

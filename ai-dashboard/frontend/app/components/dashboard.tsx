@@ -91,15 +91,14 @@ export function PageHeader({
                       })
                     : t('ai.notConfigured')}
           </p>
-          {dataSource === 'api' && (
+          {dataSource === 'api' && (aiStatus === 'error' || aiStatus === 'provider_error') && (
             <button
               type="button"
               onClick={retry}
-              disabled={aiStatus === 'loading'}
               className="inline-flex items-center gap-1.5 rounded border border-indigo-400/30 px-2 py-1 text-xs font-medium text-indigo-200 hover:bg-indigo-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:cursor-wait disabled:opacity-60"
             >
-              <RefreshCw aria-hidden="true" className={`size-3 ${aiStatus === 'loading' ? 'animate-spin' : ''}`} />
-              {t(aiStatus === 'loading' ? 'ai.refreshing' : 'ai.refresh')}
+              <RefreshCw aria-hidden="true" className="size-3" />
+              {t('ai.retry')}
             </button>
           )}
         </div>

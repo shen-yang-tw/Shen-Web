@@ -2,6 +2,7 @@ import json
 import logging
 import math
 import os
+import re
 import time
 from datetime import UTC, datetime
 from typing import Literal
@@ -450,15 +451,24 @@ async def _generate_ai_summary(
                 ],
                 response_format={"type": "json_object"},
             )
-            raw_summary = response.choices[0].message.content or ""
             if response.usage is None:
                 ai_error = "Ollama response did not include token usage."
                 logger.warning("%s", ai_error)
                 return None, _failed_model_call(started_at), ai_error
-            
-            import re
+
+            if not response.choices:
+                ai_error = "Ollama returned no summary choices."
+                logger.warning("%s", ai_error)
+                return None, ModelOpsEvent(
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    latency_ms=(time.perf_counter() - started_at) * 1000,
+                    success=False,
+                ), ai_error
+
+            raw_summary = response.choices[0].message.content or ""
             cleaned_summary = raw_summary.replace("```json", "").replace("```", "").strip()
-            
+
             try:
                 json_match = re.search(r"\{.*?\}", cleaned_summary, re.DOTALL)
                 if json_match:
@@ -466,12 +476,16 @@ async def _generate_ai_summary(
                     summary = AISummary.model_validate_json(json_str)
                 else:
                     summary = AISummary.model_validate_json(cleaned_summary)
-            except Exception:
-                summary = AISummary(
-                    summary_en=f"Analysis complete: {churn_count} high-risk customers identified.",
-                    summary_zh=f"分析完成：已識別出 {churn_count} 位高風險客戶。"
-                )
-            
+            except ValidationError:
+                ai_error = "Ollama returned a summary that did not match the required bilingual schema."
+                logger.warning("%s", ai_error)
+                return None, ModelOpsEvent(
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    latency_ms=(time.perf_counter() - started_at) * 1000,
+                    success=False,
+                ), ai_error
+
             call_event = ModelOpsEvent(
                 input_tokens=response.usage.prompt_tokens,
                 output_tokens=response.usage.completion_tokens,
@@ -479,18 +493,10 @@ async def _generate_ai_summary(
                 success=True,
             )
             return summary, call_event, None
-        except Exception as error:
-            fallback_summary = AISummary(
-                summary_en=f"Analysis complete: {churn_count} high-risk customers identified.",
-                summary_zh=f"分析完成：已識別出 {churn_count} 位高風險客戶。"
-            )
-            ai_error = f"Ollama request failed: {str(error)}"
+        except OpenAIAPIError as error:
+            ai_error = _provider_error("Ollama", error)
             logger.warning("%s", ai_error)
-            call_event = ModelOpsEvent(
-                latency_ms=(time.perf_counter() - started_at) * 1000,
-                success=False,
-            )
-            return fallback_summary, call_event, ai_error
+            return None, _failed_model_call(started_at), ai_error
         finally:
             await client.close()
 

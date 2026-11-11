@@ -173,6 +173,69 @@ class PredictionTests(unittest.TestCase):
         call_arguments = client.chat.completions.create.await_args.kwargs
         self.assertEqual(call_arguments["response_format"]["type"], "json_schema")
 
+    def test_ollama_valid_summary_is_reported_as_generated(self) -> None:
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(
+                content='```json\n{"summary_en":"Ready.","summary_zh":"分析完成。"}\n```'
+            ))],
+            usage=SimpleNamespace(prompt_tokens=20, completion_tokens=12),
+        )
+        with (
+            patch("ai.ACTIVE_MODEL", "qwen2.5:3b"),
+            patch("ai.AsyncOpenAI") as openai_client,
+            patch("ai.get_model", return_value=None),
+        ):
+            client = openai_client.return_value
+            client.chat.completions.create = AsyncMock(return_value=response)
+            client.close = AsyncMock()
+            result = asyncio.run(predict(PredictionRequest()))
+
+        self.assertEqual(result.ai_status, "generated")
+        self.assertIsNone(result.ai_error)
+        self.assertEqual(result.ai_summary.summary_zh, "分析完成。")
+        self.assertEqual(result.modelops.failure_rate, 0.0)
+        client.close.assert_awaited_once()
+
+    def test_ollama_failures_preserve_predictions_and_report_error(self) -> None:
+        connection_error = OpenAIAPIConnectionError(
+            message="Connection refused",
+            request=Request("POST", "http://ollama:11434/v1/chat/completions"),
+        )
+        usage = SimpleNamespace(prompt_tokens=20, completion_tokens=12)
+        failures = [
+            ("connection", connection_error, "Ollama request failed", 0),
+            ("invalid", SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="not JSON"))],
+                usage=usage,
+            ), "required bilingual schema", 20),
+            ("empty", SimpleNamespace(choices=[], usage=usage), "no summary choices", 20),
+        ]
+        for case, response_or_error, expected_error, expected_tokens in failures:
+            with (
+                self.subTest(case=case),
+                patch("ai.ACTIVE_MODEL", "qwen2.5:3b"),
+                patch("ai.AsyncOpenAI") as openai_client,
+                patch("ai.get_model", return_value=None),
+            ):
+                client = openai_client.return_value
+                if isinstance(response_or_error, Exception):
+                    client.chat.completions.create = AsyncMock(side_effect=response_or_error)
+                else:
+                    client.chat.completions.create = AsyncMock(return_value=response_or_error)
+                client.close = AsyncMock()
+                result = asyncio.run(predict(PredictionRequest.model_validate({
+                    "customers": [{"customer_id": "C-RETRY", "monthly_charges": 50}]
+                })))
+
+                self.assertEqual(result.ai_status, "provider_error")
+                self.assertIn(expected_error, result.ai_error)
+                self.assertIsNone(result.ai_summary)
+                self.assertEqual(result.churn_predictions[0].customer_id, "C-RETRY")
+                self.assertEqual(len(result.mrr.forecast), 6)
+                self.assertEqual(result.modelops.failure_rate, 1.0)
+                self.assertEqual(result.modelops.input_tokens, expected_tokens)
+                client.close.assert_awaited_once()
+
     def test_anthropic_connection_error_preserves_prediction_response(self) -> None:
         with (
             patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}),

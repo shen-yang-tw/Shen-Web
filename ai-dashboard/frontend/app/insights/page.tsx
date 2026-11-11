@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Clock3, Cpu, DollarSign, RefreshCw, ShieldCheck, Target, TrendingUp } from 'lucide-react'
+import { CheckCircle2, Clock3, Cpu, DollarSign, ShieldCheck, Target, TrendingUp } from 'lucide-react'
 import { useChurnData } from '../hooks/useChurnData'
 import { MetricCard, PageHeader, ProgressBar } from '../components/dashboard'
 import { AnomalyPanel, BudgetPanel, DailyLineChart, MrrTrendChart } from '../components/ops-charts'
@@ -11,7 +11,7 @@ import { useAppPreferences } from '../components/app-shell'
 import { API_BASE_URL } from '@/lib/api' // 依照你專案的相對路徑調整
 
 export default function InsightsPage() {
-  const { allRows, aiPrediction, telemetry, isLoading, retry } = useChurnData()
+  const { allRows, aiPrediction, telemetry } = useChurnData()
   const { t, locale } = useAppPreferences()
   const [threshold, setThreshold] = useState(HIGH_RISK_THRESHOLD * 100)
   const [modelCard, setModelCard] = useState<ChurnModelCard | null>(null)
@@ -40,16 +40,6 @@ export default function InsightsPage() {
         eyebrow={t('insights.eyebrow')}
         title={t('insights.title')}
         description={t('insights.description')}
-        action={
-          <button
-            onClick={retry}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-medium text-slate-950 transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-          >
-            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />{' '}
-            {t(isLoading ? 'ai.refreshing' : 'ai.refresh')}
-          </button>
-        }
       />
       <main className="flex flex-col gap-6 p-5 sm:p-8 lg:p-10">
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
